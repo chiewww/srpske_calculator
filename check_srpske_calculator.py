@@ -29,10 +29,10 @@ def close_result_modal(page):
     if modal.count() == 0:
         return
 
-    if not modal.is_visible():
+    if not modal.first.is_visible():
         return
 
-    close_button = modal.locator(MODAL_CLOSE_SELECTOR)
+    close_button = modal.first.locator(MODAL_CLOSE_SELECTOR)
 
     if close_button.count() > 0 and close_button.first.is_visible():
         close_button.first.click(timeout=5000)
@@ -43,20 +43,17 @@ def close_result_modal(page):
                 timeout=5000
             )
         except PlaywrightTimeoutError:
-            # If the site's JavaScript removes the modal slightly differently,
-            # give it a short additional moment.
             page.wait_for_timeout(300)
 
     else:
-        # Fallback: press Escape if the close image cannot be clicked.
         page.keyboard.press("Escape")
         page.wait_for_timeout(300)
 
 
 def calculate_destination(page, destination_name):
     """
-    Select a destination, enter weight 10g, calculate, read the modal,
-    classify the destination, and close the modal.
+    Select a destination, enter weight 10g, calculate, read the result,
+    classify the destination, and close the result modal.
     """
 
     print(f"Checking: {destination_name}")
@@ -76,7 +73,7 @@ def calculate_destination(page, destination_name):
     weight = page.locator(WEIGHT_SELECTOR)
     weight.fill(WEIGHT)
 
-    # Make sure the result modal from a previous calculation is gone.
+    # Make sure a previous result modal is not still open.
     visible_modal = page.locator(MODAL_SELECTOR)
 
     if visible_modal.count() > 0 and visible_modal.first.is_visible():
@@ -85,7 +82,7 @@ def calculate_destination(page, destination_name):
     # Click Calculate.
     page.locator(CALCULATE_SELECTOR).click(timeout=10000)
 
-    # Wait for the result modal to appear.
+    # Wait for the result modal.
     modal = page.locator(MODAL_SELECTOR)
 
     try:
@@ -97,18 +94,18 @@ def calculate_destination(page, destination_name):
         print("  ERROR: Calculation result modal did not appear.")
         return "error"
 
-    # Read the result specifically from the modal.
-    content = modal.locator(MODAL_CONTENT_SELECTOR)
+    # Read the calculation result specifically from the modal.
+    content = modal.first.locator(MODAL_CONTENT_SELECTOR)
 
     if content.count() > 0:
-        result_text = content.inner_text()
+        result_text = content.first.inner_text()
     else:
-        result_text = modal.inner_text()
+        result_text = modal.first.inner_text()
 
     print("  Result:")
     print("  " + result_text.replace("\n", "\n  "))
 
-    # Determine availability from the actual calculation result.
+    # Check whether the postcard price exists.
     if AVAILABLE_MARKER.lower() in result_text.lower():
         status = "available"
         print("  AVAILABLE")
@@ -116,8 +113,7 @@ def calculate_destination(page, destination_name):
         status = "suspended"
         print("  SUSPENDED")
 
-    # IMPORTANT:
-    # Close the result modal before moving to the next destination.
+    # Close the result modal before continuing.
     close_result_modal(page)
 
     return status
@@ -142,11 +138,11 @@ def main():
             }
         )
 
-        # Shorter default timeout so a genuine problem doesn't stall
-        # the entire GitHub Actions run for many minutes.
+        # Prevent long waits if the website genuinely has a problem.
         page.set_default_timeout(10000)
 
         print("Opening calculator...")
+
         page.goto(
             URL,
             wait_until="domcontentloaded",
@@ -156,6 +152,7 @@ def main():
         page.wait_for_timeout(2000)
 
         print("Selecting International traffic...")
+
         page.locator("#vrsta_usl").select_option(
             TRAFFIC_VALUE
         )
@@ -163,14 +160,17 @@ def main():
         page.wait_for_timeout(1000)
 
         print("Selecting Stationery (Postcard)...")
+
         page.locator("#uslugaM").select_option(
             SERVICE_VALUE
         )
 
         page.wait_for_timeout(1000)
 
-        # Get all destination names from the dropdown.
-        destination_select = page.locator(DESTINATION_SELECTOR)
+        # Get all destinations from the dropdown.
+        destination_select = page.locator(
+            DESTINATION_SELECTOR
+        )
 
         options = destination_select.locator("option")
 
@@ -191,14 +191,25 @@ def main():
                     }
                 )
 
-        print(f"Found {len(destinations)} destinations.")
+        total_destinations = len(destinations)
+
+        print(
+            f"Found {total_destinations} destinations."
+        )
         print()
 
-        for index, destination in enumerate(destinations, start=1):
+        # -----------------------------------------------------------
+        # Check every destination.
+        # -----------------------------------------------------------
+
+        for index, destination in enumerate(
+            destinations,
+            start=1
+        ):
             destination_name = destination["label"]
 
             print(
-                f"[{index}/{len(destinations)}] "
+                f"[{index}/{total_destinations}] "
                 f"{destination_name}"
             )
 
@@ -225,8 +236,7 @@ def main():
 
                 errors.append(destination_name)
 
-                # Try to recover from any modal/overlay that may have
-                # been left behind by the calculator.
+                # Attempt to recover if the calculator left a modal open.
                 try:
                     close_result_modal(page)
                 except Exception:
@@ -237,10 +247,17 @@ def main():
         browser.close()
 
     # ---------------------------------------------------------------
+    # Calculate totals.
+    # ---------------------------------------------------------------
+
+    total_available = len(available)
+    total_suspended = len(suspended)
+    total_errors = len(errors)
+
+    # ---------------------------------------------------------------
     # Write results.txt
     #
-    # No timestamp is included because changedetection.io should only
-    # detect actual changes to the calculator results.
+    # No timestamp is included.
     # ---------------------------------------------------------------
 
     with open(
@@ -248,6 +265,20 @@ def main():
         "w",
         encoding="utf-8"
     ) as output:
+
+        output.write(
+            f"TOTAL ALL DESTINATIONS: {total_destinations}\n"
+        )
+
+        output.write(
+            f"TOTAL AVAILABLE DESTINATIONS: {total_available}\n"
+        )
+
+        output.write(
+            f"TOTAL SUSPENDED DESTINATIONS: {total_suspended}\n"
+        )
+
+        output.write("\n")
 
         output.write("ALL DESTINATIONS\n")
         output.write("================\n")
@@ -263,7 +294,9 @@ def main():
         output.write("======================\n")
 
         for destination_name in available:
-            output.write(destination_name + "\n")
+            output.write(
+                destination_name + "\n"
+            )
 
         output.write("\n")
 
@@ -271,23 +304,61 @@ def main():
         output.write("======================\n")
 
         for destination_name in suspended:
-            output.write(destination_name + "\n")
+            output.write(
+                destination_name + "\n"
+            )
+
+        # Technical errors are kept separate so they aren't incorrectly
+        # classified as suspended.
+        if errors:
+            output.write("\n")
+
+            output.write("TECHNICAL ERRORS\n")
+            output.write("================\n")
+
+            for destination_name in errors:
+                output.write(
+                    destination_name + "\n"
+                )
+
+    # ---------------------------------------------------------------
+    # Final console summary.
+    # ---------------------------------------------------------------
 
     print("=" * 70)
     print("CHECK COMPLETE")
     print("=" * 70)
-    print(f"Total destinations: {len(destinations)}")
-    print(f"Available: {len(available)}")
-    print(f"Suspended: {len(suspended)}")
-    print(f"Technical errors: {len(errors)}")
-    print(f"Results written to: {OUTPUT_FILE}")
+
+    print(
+        f"Total destinations: {total_destinations}"
+    )
+
+    print(
+        f"Available: {total_available}"
+    )
+
+    print(
+        f"Suspended: {total_suspended}"
+    )
+
+    print(
+        f"Technical errors: {total_errors}"
+    )
+
+    print(
+        f"Results written to: {OUTPUT_FILE}"
+    )
+
     print("=" * 70)
 
     if errors:
         print()
         print("Destinations with technical errors:")
+
         for destination_name in errors:
-            print(f"  - {destination_name}")
+            print(
+                f"  - {destination_name}"
+            )
 
 
 if __name__ == "__main__":
