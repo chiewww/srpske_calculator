@@ -36,7 +36,7 @@ Run:
     python check_srpske_calculator.py
 
 The output file is:
-    srpske_calculator_results.txt
+    results.txt
 """
 
 from pathlib import Path
@@ -52,7 +52,7 @@ from playwright.sync_api import (
 
 URL = "https://www.postesrpske.com/calc/kalkulator.html"
 
-OUTPUT_FILE = Path("srpske_calculator_results.txt")
+OUTPUT_FILE = Path("results.txt")
 
 TYPE_OF_SERVICE = "International traffic"
 SERVICE = "Stationery (Postcard)"
