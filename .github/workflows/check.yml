@@ -50,4 +50,3 @@ jobs:
           else
             echo "No results.txt was created by the diagnostic script."
           fi
-```
