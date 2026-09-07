@@ -6,34 +6,30 @@ Pošte Srpske calculator destination availability checker.
 Website:
     https://www.postesrpske.com/calc/kalkulator.html
 
-The script:
+Process:
 
-1. Opens the English calculator.
-2. Selects "International traffic" for Type of service.
-3. Selects "Stationery (Postcard)" for Service.
-4. Reads ALL destinations from the Destination information dropdown.
+1. Open the English calculator.
+2. Select "International traffic" for Type of service.
+3. Select "Stationery (Postcard)" for Service.
+4. Read ALL destinations from the Destination information dropdown.
 5. For every destination:
-       - selects the destination
-       - enters weight 10
-       - clicks Calculate
-       - checks whether "Price Stationery (postcard)" appears
-6. Writes the results to:
+       - select the destination
+       - enter weight 10
+       - click Calculate
+       - check whether "Price Stationery (postcard)" appears
+6. Write one output file:
        results.txt
 
-IMPORTANT:
-    results.txt intentionally does NOT contain a timestamp.
-    This prevents changedetection.io from detecting a change every
-    time the script runs when the actual results have not changed.
+Availability rule:
 
-Requirements:
-    Python 3.9+
-    Playwright
+    "Price Stationery (postcard)" found
+        = AVAILABLE
 
-Install:
-    pip install -r requirements.txt
+    "Price Stationery (postcard)" not found
+        = SUSPENDED
 
-Run:
-    python check_srpske_calculator.py
+The output file intentionally contains no timestamp so that
+changedetection.io only detects actual changes.
 """
 
 from pathlib import Path
@@ -64,47 +60,29 @@ PRICE_TEXT = "Price Stationery (postcard)"
 
 TIMEOUT_MS = 30000
 
-CALCULATION_WAIT_MS = 1500
+CALCULATION_WAIT_MS = 2000
 
 
 # ================================================================
-# HELPER FUNCTIONS
+# TEXT HELPERS
 # ================================================================
 
 def clean_text(value):
-    """Normalize whitespace in text."""
+    """Normalize whitespace."""
+
     if value is None:
         return ""
 
     return " ".join(value.split()).strip()
 
 
-def get_select_options(page):
-    """
-    Return information about every SELECT element on the page.
-    """
-
-    return page.locator("select").evaluate_all(
-        """
-        selects => selects.map((select, index) => ({
-            index: index,
-            id: select.id || "",
-            name: select.name || "",
-            ariaLabel: select.getAttribute("aria-label") || "",
-            options: Array.from(select.options).map(option => ({
-                text: option.textContent.trim(),
-                value: option.value
-            }))
-        }))
-        """
-    )
-
+# ================================================================
+# DEBUGGING
+# ================================================================
 
 def print_dropdown_information(page):
     """
-    Print all dropdowns to the GitHub Actions log.
-
-    This is useful for troubleshooting if the website changes.
+    Print every SELECT and its options to the GitHub Actions log.
     """
 
     print()
@@ -112,42 +90,103 @@ def print_dropdown_information(page):
     print("CURRENT DROPDOWNS")
     print("=" * 70)
 
-    dropdowns = get_select_options(page)
-
-    for dropdown in dropdowns:
-        print()
-        print(
-            f"SELECT #{dropdown['index']} "
-            f"id={dropdown['id']!r} "
-            f"name={dropdown['name']!r}"
-        )
-
-        for option in dropdown["options"]:
-            print(f"    {option['text']!r}")
-
-    print("=" * 70)
-    print()
-
-
-def find_select_containing_option(page, option_text):
-    """
-    Find a SELECT containing an option with the specified visible text.
-    """
-
     selects = page.locator("select")
 
-    wanted = clean_text(option_text).casefold()
+    print(
+        f"Number of SELECT elements: {selects.count()}"
+    )
 
     for index in range(selects.count()):
 
         select = selects.nth(index)
 
+        print()
+        print(
+            f"SELECT #{index}"
+        )
+
+        print(
+            f"  id: {select.get_attribute('id')}"
+        )
+
+        print(
+            f"  name: {select.get_attribute('name')}"
+        )
+
         options = select.locator("option")
 
-        for option_index in range(options.count()):
+        print(
+            f"  options: {options.count()}"
+        )
+
+        for option_index in range(
+            options.count()
+        ):
+
+            option = options.nth(
+                option_index
+            )
 
             text = clean_text(
-                options.nth(option_index).inner_text()
+                option.inner_text()
+            )
+
+            value = option.get_attribute(
+                "value"
+            )
+
+            print(
+                f"    {option_index}: "
+                f"text={text!r}, "
+                f"value={value!r}"
+            )
+
+    print()
+    print("=" * 70)
+    print()
+
+
+# ================================================================
+# FIND SELECT
+# ================================================================
+
+def find_select_containing_option(
+    page,
+    option_text,
+):
+    """
+    Find a SELECT containing an option whose visible text matches
+    option_text.
+    """
+
+    wanted = clean_text(
+        option_text
+    ).casefold()
+
+    selects = page.locator("select")
+
+    for select_index in range(
+        selects.count()
+    ):
+
+        select = selects.nth(
+            select_index
+        )
+
+        options = select.locator(
+            "option"
+        )
+
+        for option_index in range(
+            options.count()
+        ):
+
+            option = options.nth(
+                option_index
+            )
+
+            text = clean_text(
+                option.inner_text()
             )
 
             if text.casefold() == wanted:
@@ -156,45 +195,75 @@ def find_select_containing_option(page, option_text):
     return None
 
 
-def select_option_by_visible_text(page, select, wanted_text):
+def select_option_by_visible_text(
+    select,
+    wanted_text,
+):
     """
     Select an option using its visible text.
     """
 
-    wanted = clean_text(wanted_text).casefold()
+    wanted = clean_text(
+        wanted_text
+    ).casefold()
 
-    options = select.locator("option")
+    options = select.locator(
+        "option"
+    )
 
-    for index in range(options.count()):
+    for option_index in range(
+        options.count()
+    ):
 
-        option = options.nth(index)
+        option = options.nth(
+            option_index
+        )
 
-        text = clean_text(option.inner_text())
+        text = clean_text(
+            option.inner_text()
+        )
 
         if text.casefold() == wanted:
 
-            value = option.get_attribute("value")
+            value = option.get_attribute(
+                "value"
+            )
 
             if value is not None:
-                select.select_option(value=value)
+
+                select.select_option(
+                    value=value
+                )
+
             else:
-                select.select_option(label=text)
+
+                select.select_option(
+                    label=text
+                )
 
             return
 
     raise RuntimeError(
-        f'Could not find option "{wanted_text}" '
-        "in the selected dropdown."
+        f'Could not find option "{wanted_text}".'
     )
 
 
+# ================================================================
+# WAIT FOR CALCULATOR
+# ================================================================
+
 def wait_for_dynamic_dropdowns(page):
     """
-    Wait for the calculator JavaScript to populate the Service
-    and Destination dropdowns.
+    Wait until the Service option appears.
+
+    IMPORTANT:
+    Playwright Python requires the JavaScript function argument
+    to be supplied using arg=.
     """
 
-    page.wait_for_timeout(1000)
+    page.wait_for_timeout(
+        1000
+    )
 
     try:
 
@@ -202,74 +271,101 @@ def wait_for_dynamic_dropdowns(page):
             """
             expected => {
                 const selects =
-                    Array.from(document.querySelectorAll("select"));
+                    Array.from(
+                        document.querySelectorAll("select")
+                    );
 
                 return selects.some(select =>
-                    Array.from(select.options).some(option =>
-                        option.textContent.trim().toLowerCase() ===
-                        expected.toLowerCase()
+                    Array.from(
+                        select.options
+                    ).some(option =>
+                        option.textContent
+                            .trim()
+                            .toLowerCase() ===
+                        expected
+                            .toLowerCase()
                     )
                 );
             }
             """,
-            SERVICE,
+            arg=SERVICE,
             timeout=TIMEOUT_MS,
         )
 
     except PlaywrightTimeoutError:
 
-        raise RuntimeError(
-            'The "Stationery (Postcard)" option did not appear. '
-            "The website may have changed."
+        print_dropdown_information(
+            page
         )
 
-    page.wait_for_timeout(1000)
+        raise RuntimeError(
+            'The "Stationery (Postcard)" option '
+            "did not appear."
+        )
 
+    page.wait_for_timeout(
+        1000
+    )
+
+
+# ================================================================
+# DESTINATION DROPDOWN
+# ================================================================
 
 def get_destination_select(page):
     """
     Find the Destination information dropdown.
 
-    The script first looks for a dropdown containing recognizable
-    country names.
-
-    If that does not work, it falls back to the dropdown containing
-    the largest number of options.
+    We identify it by looking for a SELECT with multiple country
+    options.
     """
 
-    selects = page.locator("select")
+    selects = page.locator(
+        "select"
+    )
 
     candidates = []
 
-    for index in range(selects.count()):
+    for select_index in range(
+        selects.count()
+    ):
 
-        select = selects.nth(index)
+        select = selects.nth(
+            select_index
+        )
 
-        options = select.locator("option")
+        options = select.locator(
+            "option"
+        )
 
         option_texts = []
 
-        for option_index in range(options.count()):
+        for option_index in range(
+            options.count()
+        ):
 
             text = clean_text(
-                options.nth(option_index).inner_text()
+                options.nth(
+                    option_index
+                ).inner_text()
             )
 
             if text:
-                option_texts.append(text)
+                option_texts.append(
+                    text
+                )
 
-        if len(option_texts) < 2:
-            continue
+        if len(option_texts) >= 2:
 
-        candidates.append(
-            (
-                select,
-                option_texts,
+            candidates.append(
+                (
+                    select,
+                    option_texts,
+                )
             )
-        )
 
-    # Recognizable country names.
-    destination_keywords = [
+    # Look for recognizable country names.
+    country_keywords = [
         "Albania",
         "Austria",
         "Belgium",
@@ -290,46 +386,72 @@ def get_destination_select(page):
 
     for select, options in candidates:
 
-        joined = " ".join(options).casefold()
+        combined = " ".join(
+            options
+        ).casefold()
 
-        matches = sum(
-            1
-            for keyword in destination_keywords
-            if keyword.casefold() in joined
-        )
+        matches = 0
+
+        for keyword in country_keywords:
+
+            if keyword.casefold() in combined:
+                matches += 1
 
         if matches >= 2:
             return select
 
-    # Fallback: use the dropdown with the most options.
+    # Fallback: dropdown with most options.
     if candidates:
 
         candidates.sort(
-            key=lambda item: len(item[1]),
+            key=lambda item: len(
+                item[1]
+            ),
             reverse=True,
         )
 
         return candidates[0][0]
 
+    print_dropdown_information(
+        page
+    )
+
     raise RuntimeError(
-        "Could not find the Destination information dropdown."
+        "Could not find Destination information dropdown."
     )
 
 
-def get_all_destinations(destination_select):
+def get_all_destinations(
+    destination_select,
+):
     """
-    Extract every destination from the dropdown.
+    Return every destination from the dropdown.
 
-    Placeholder entries such as "Select" are excluded.
+    Placeholder options are ignored.
     """
 
     destinations = []
 
-    options = destination_select.locator("option")
+    options = destination_select.locator(
+        "option"
+    )
 
-    for index in range(options.count()):
+    placeholders = {
+        "select",
+        "[select]",
+        "select destination",
+        "destination",
+        "choose",
+        "please select",
+    }
 
-        option = options.nth(index)
+    for option_index in range(
+        options.count()
+    ):
+
+        option = options.nth(
+            option_index
+        )
 
         text = clean_text(
             option.inner_text()
@@ -338,22 +460,13 @@ def get_all_destinations(destination_select):
         if not text:
             continue
 
-        value = option.get_attribute("value")
+        value = option.get_attribute(
+            "value"
+        )
 
-        lower = text.casefold()
-
-        # Ignore common placeholder options.
-        if lower in {
-            "select",
-            "[select]",
-            "select destination",
-            "destination",
-            "choose",
-            "please select",
-        }:
+        if text.casefold() in placeholders:
             continue
 
-        # Ignore empty-value placeholders.
         if value is not None and not value.strip():
             continue
 
@@ -364,98 +477,126 @@ def get_all_destinations(destination_select):
             }
         )
 
-    # Remove duplicates while preserving website order.
+    # Remove duplicates while preserving order.
     unique = []
 
     seen = set()
 
     for destination in destinations:
 
-        key = destination["text"].casefold()
+        key = destination[
+            "text"
+        ].casefold()
 
         if key not in seen:
 
             seen.add(key)
 
-            unique.append(destination)
+            unique.append(
+                destination
+            )
 
     return unique
 
+
+# ================================================================
+# WEIGHT
+# ================================================================
 
 def find_weight_input(page):
     """
     Find the Weight input field.
     """
 
-    # ------------------------------------------------------------
-    # Try labels.
-    # ------------------------------------------------------------
+    # First try labels.
+    labels = page.locator(
+        "label"
+    )
 
-    labels = page.locator("label")
+    for label_index in range(
+        labels.count()
+    ):
 
-    for index in range(labels.count()):
+        label = labels.nth(
+            label_index
+        )
 
-        label = labels.nth(index)
-
-        text = clean_text(
+        label_text = clean_text(
             label.inner_text()
         ).casefold()
 
-        if "weight" in text:
+        if "weight" not in label_text:
+            continue
 
-            label_for = label.get_attribute("for")
+        label_for = label.get_attribute(
+            "for"
+        )
 
-            if label_for:
+        if label_for:
 
-                candidate = page.locator(
-                    f"#{label_for}"
-                )
-
-                if candidate.count() > 0:
-                    return candidate
-
-            candidate = label.locator(
-                "xpath=following::input[1]"
+            candidate = page.locator(
+                f"#{label_for}"
             )
 
             if candidate.count() > 0:
-                return candidate.first
+                return candidate
 
-    # ------------------------------------------------------------
-    # Try input attributes.
-    # ------------------------------------------------------------
+        candidate = label.locator(
+            "xpath=following::input[1]"
+        )
 
-    inputs = page.locator("input")
+        if candidate.count() > 0:
+            return candidate.first
 
-    for index in range(inputs.count()):
+    # Then inspect input attributes.
+    inputs = page.locator(
+        "input"
+    )
 
-        input_element = inputs.nth(index)
+    for input_index in range(
+        inputs.count()
+    ):
+
+        input_element = inputs.nth(
+            input_index
+        )
 
         identifier = " ".join(
             [
-                input_element.get_attribute("id") or "",
-                input_element.get_attribute("name") or "",
-                input_element.get_attribute("placeholder") or "",
-                input_element.get_attribute("aria-label") or "",
+                input_element.get_attribute(
+                    "id"
+                ) or "",
+                input_element.get_attribute(
+                    "name"
+                ) or "",
+                input_element.get_attribute(
+                    "placeholder"
+                ) or "",
+                input_element.get_attribute(
+                    "aria-label"
+                ) or "",
             ]
         ).casefold()
 
         if "weight" in identifier:
             return input_element
 
-    # ------------------------------------------------------------
-    # Fallback to visible number/text input.
-    # ------------------------------------------------------------
+    # Final fallback.
+    for input_index in range(
+        inputs.count()
+    ):
 
-    for index in range(inputs.count()):
-
-        input_element = inputs.nth(index)
+        input_element = inputs.nth(
+            input_index
+        )
 
         if not input_element.is_visible():
             continue
 
         input_type = (
-            input_element.get_attribute("type")
+            input_element.get_attribute(
+                "type"
+            )
             or "text"
         ).casefold()
 
@@ -463,12 +604,17 @@ def find_weight_input(page):
             "number",
             "text",
         }:
+
             return input_element
 
     raise RuntimeError(
-        "Could not find the Weight input."
+        "Could not find Weight input."
     )
 
+
+# ================================================================
+# CALCULATE BUTTON
+# ================================================================
 
 def find_calculate_button(page):
     """
@@ -476,18 +622,24 @@ def find_calculate_button(page):
     """
 
     buttons = page.locator(
-        "button, input[type='button'], input[type='submit']"
+        "button, input[type='button'], "
+        "input[type='submit']"
     )
 
-    for index in range(buttons.count()):
+    for button_index in range(
+        buttons.count()
+    ):
 
-        button = buttons.nth(index)
+        button = buttons.nth(
+            button_index
+        )
 
         if not button.is_visible():
             continue
 
         tag_name = button.evaluate(
-            "(el) => el.tagName.toLowerCase()"
+            "(element) => "
+            "element.tagName.toLowerCase()"
         )
 
         if tag_name == "button":
@@ -499,41 +651,45 @@ def find_calculate_button(page):
         else:
 
             text = clean_text(
-                button.get_attribute("value")
+                button.get_attribute(
+                    "value"
+                )
                 or ""
             )
 
         if text.casefold() == "calculate":
+
             return button
 
     raise RuntimeError(
-        'Could not find the "Calculate" button.'
+        'Could not find "Calculate" button.'
     )
 
 
+# ================================================================
+# PRICE CHECK
+# ================================================================
+
 def page_contains_price(page):
     """
-    Check whether the calculator result contains:
-
-        Price Stationery (postcard)
-
-    Returns True if found.
-    Returns False otherwise.
+    Determine whether the expected postcard price text is present.
     """
 
     body_text = clean_text(
-        page.locator("body").inner_text()
+        page.locator(
+            "body"
+        ).inner_text()
     ).casefold()
 
-    wanted = clean_text(
+    expected = clean_text(
         PRICE_TEXT
     ).casefold()
 
-    return wanted in body_text
+    return expected in body_text
 
 
 # ================================================================
-# CHECK ONE DESTINATION
+# CHECK DESTINATION
 # ================================================================
 
 def check_destination(
@@ -544,52 +700,53 @@ def check_destination(
     calculate_button,
 ):
     """
-    Test one destination.
+    Check one destination.
 
-    Returns:
-        True  = available
-        False = suspended
+    True  = AVAILABLE
+    False = SUSPENDED
     """
 
-    destination_text = destination["text"]
+    name = destination[
+        "text"
+    ]
 
     print(
-        f"Checking destination: {destination_text}"
+        f"Checking: {name}"
     )
 
     # ------------------------------------------------------------
     # Select destination.
     # ------------------------------------------------------------
 
-    if destination["value"] is not None:
+    value = destination[
+        "value"
+    ]
+
+    if value is not None:
 
         try:
 
             destination_select.select_option(
-                value=destination["value"]
+                value=value
             )
 
         except Exception:
 
             select_option_by_visible_text(
-                page,
                 destination_select,
-                destination_text,
+                name,
             )
 
     else:
 
         select_option_by_visible_text(
-            page,
             destination_select,
-            destination_text,
+            name,
         )
 
     # ------------------------------------------------------------
     # Enter weight 10.
     # ------------------------------------------------------------
-
-    weight_input.fill("")
 
     weight_input.fill(
         WEIGHT
@@ -601,13 +758,13 @@ def check_destination(
 
     calculate_button.click()
 
-    # Allow the calculator to update the result.
+    # Give JavaScript time to update.
     page.wait_for_timeout(
         CALCULATION_WAIT_MS
     )
 
     # ------------------------------------------------------------
-    # Check result.
+    # Check for expected price text.
     # ------------------------------------------------------------
 
     available = page_contains_price(
@@ -617,13 +774,13 @@ def check_destination(
     if available:
 
         print(
-            f"  RESULT: AVAILABLE"
+            f"  -> AVAILABLE"
         )
 
     else:
 
         print(
-            f"  RESULT: SUSPENDED"
+            f"  -> SUSPENDED"
         )
 
     return available
@@ -639,10 +796,9 @@ def write_results(
     suspended_destinations,
 ):
     """
-    Write exactly one output file.
+    Write the single results.txt file.
 
-    No timestamp is included so changedetection.io only detects
-    actual changes in the destination lists.
+    No timestamp is written.
     """
 
     lines = []
@@ -676,7 +832,7 @@ def write_results(
     lines.append("")
 
     # ============================================================
-    # 1. ALL DESTINATIONS
+    # ALL DESTINATIONS
     # ============================================================
 
     lines.append(
@@ -699,13 +855,14 @@ def write_results(
     lines.append("")
 
     lines.append(
-        f"Total destinations: {len(all_destinations)}"
+        f"Total destinations: "
+        f"{len(all_destinations)}"
     )
 
     lines.append("")
 
     # ============================================================
-    # 2. AVAILABLE DESTINATIONS
+    # AVAILABLE
     # ============================================================
 
     lines.append(
@@ -728,13 +885,14 @@ def write_results(
     lines.append("")
 
     lines.append(
-        f"Total available: {len(available_destinations)}"
+        f"Total available: "
+        f"{len(available_destinations)}"
     )
 
     lines.append("")
 
     # ============================================================
-    # 3. SUSPENDED DESTINATIONS
+    # SUSPENDED
     # ============================================================
 
     lines.append(
@@ -757,13 +915,14 @@ def write_results(
     lines.append("")
 
     lines.append(
-        f"Total suspended: {len(suspended_destinations)}"
+        f"Total suspended: "
+        f"{len(suspended_destinations)}"
     )
 
     lines.append("")
 
     # ============================================================
-    # CHECK RULE
+    # RULE
     # ============================================================
 
     lines.append(
@@ -775,16 +934,17 @@ def write_results(
     )
 
     lines.append(
-        'Available = calculator returned "Price Stationery (postcard)"'
+        'Available = "Price Stationery (postcard)" '
+        "was returned."
     )
 
     lines.append(
-        'Suspended = calculator did not return "Price Stationery (postcard)"'
+        'Suspended = "Price Stationery (postcard)" '
+        "was not returned."
     )
 
     lines.append("")
 
-    # Write the complete file.
     OUTPUT_FILE.write_text(
         "\n".join(lines),
         encoding="utf-8",
@@ -798,11 +958,9 @@ def write_results(
 def main():
 
     print("=" * 70)
-
     print(
         "POŠTE SRPSKE CALCULATOR CHECK"
     )
-
     print("=" * 70)
 
     print()
@@ -832,7 +990,7 @@ def main():
     suspended_destinations = []
 
     # ============================================================
-    # Start Playwright
+    # START PLAYWRIGHT
     # ============================================================
 
     with sync_playwright() as playwright:
@@ -855,7 +1013,7 @@ def main():
         try:
 
             # ====================================================
-            # STEP 1: Open website
+            # STEP 1
             # ====================================================
 
             print(
@@ -873,16 +1031,18 @@ def main():
             )
 
             # ====================================================
-            # STEP 2: International traffic
+            # STEP 2
             # ====================================================
 
             print(
                 'STEP 2: Selecting "International traffic"...'
             )
 
-            type_select = find_select_containing_option(
-                page,
-                TYPE_OF_SERVICE,
+            type_select = (
+                find_select_containing_option(
+                    page,
+                    TYPE_OF_SERVICE,
+                )
             )
 
             if type_select is None:
@@ -892,12 +1052,10 @@ def main():
                 )
 
                 raise RuntimeError(
-                    'Could not find "International traffic" '
-                    "in any dropdown."
+                    'Could not find "International traffic".'
                 )
 
             select_option_by_visible_text(
-                page,
                 type_select,
                 TYPE_OF_SERVICE,
             )
@@ -907,16 +1065,18 @@ def main():
             )
 
             # ====================================================
-            # STEP 3: Stationery (Postcard)
+            # STEP 3
             # ====================================================
 
             print(
                 'STEP 3: Selecting "Stationery (Postcard)"...'
             )
 
-            service_select = find_select_containing_option(
-                page,
-                SERVICE,
+            service_select = (
+                find_select_containing_option(
+                    page,
+                    SERVICE,
+                )
             )
 
             if service_select is None:
@@ -926,18 +1086,16 @@ def main():
                 )
 
                 raise RuntimeError(
-                    'Could not find "Stationery (Postcard)" '
-                    "in any dropdown."
+                    'Could not find "Stationery (Postcard)".'
                 )
 
             select_option_by_visible_text(
-                page,
                 service_select,
                 SERVICE,
             )
 
             # ====================================================
-            # Wait for Destination information
+            # WAIT FOR DESTINATION LIST
             # ====================================================
 
             print(
@@ -949,19 +1107,23 @@ def main():
             )
 
             # ====================================================
-            # STEP 4: Get ALL destinations
+            # STEP 4
             # ====================================================
 
             print(
                 'STEP 4: Reading "Destination information"...'
             )
 
-            destination_select = get_destination_select(
-                page
+            destination_select = (
+                get_destination_select(
+                    page
+                )
             )
 
-            destinations = get_all_destinations(
-                destination_select
+            destinations = (
+                get_all_destinations(
+                    destination_select
+                )
             )
 
             if not destinations:
@@ -988,37 +1150,41 @@ def main():
             print()
 
             # ====================================================
-            # Find Weight field
+            # WEIGHT
             # ====================================================
 
             print(
                 "Finding Weight input..."
             )
 
-            weight_input = find_weight_input(
-                page
+            weight_input = (
+                find_weight_input(
+                    page
+                )
             )
 
             # ====================================================
-            # Find Calculate button
+            # CALCULATE
             # ====================================================
 
             print(
                 'Finding "Calculate" button...'
             )
 
-            calculate_button = find_calculate_button(
-                page
+            calculate_button = (
+                find_calculate_button(
+                    page
+                )
             )
 
             # ====================================================
-            # STEP 5: Check every destination
+            # STEP 5
             # ====================================================
 
             print()
 
             print(
-                "STEP 5: Checking every destination..."
+                "STEP 5: Checking destinations..."
             )
 
             print()
@@ -1034,12 +1200,14 @@ def main():
 
                 try:
 
-                    available = check_destination(
-                        page,
-                        destination_select,
-                        destination,
-                        weight_input,
-                        calculate_button,
+                    available = (
+                        check_destination(
+                            page,
+                            destination_select,
+                            destination,
+                            weight_input,
+                            calculate_button,
+                        )
                     )
 
                     if available:
@@ -1061,18 +1229,20 @@ def main():
                     )
 
                     print(
-                        "  Classified as SUSPENDED."
+                        "  -> SUSPENDED"
                     )
 
                     suspended_destinations.append(
                         destination["text"]
                     )
 
-                # Small delay between destinations.
-                time.sleep(0.5)
+                # Small pause between requests.
+                time.sleep(
+                    0.5
+                )
 
             # ====================================================
-            # STEP 6: Write results.txt
+            # STEP 6
             # ====================================================
 
             print()
@@ -1088,7 +1258,7 @@ def main():
             )
 
             # ====================================================
-            # Final summary
+            # SUMMARY
             # ====================================================
 
             print()
@@ -1121,7 +1291,7 @@ def main():
             print()
 
             print(
-                f"Output file: "
+                f"Output: "
                 f"{OUTPUT_FILE.resolve()}"
             )
 
@@ -1133,7 +1303,7 @@ def main():
 
 
 # ================================================================
-# PROGRAM ENTRY POINT
+# ENTRY POINT
 # ================================================================
 
 if __name__ == "__main__":
