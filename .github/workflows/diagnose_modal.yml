@@ -1,0 +1,232 @@
+name: Diagnose Pošte Srpske Calculator Modal
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose-modal:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install playwright==1.55.0
+
+      - name: Install Playwright Chromium
+        run: |
+          python -m playwright install --with-deps chromium
+
+      - name: Create diagnostic script
+        run: |
+          cat > diagnose_modal.py <<'PYTHON'
+          from playwright.sync_api import sync_playwright
+          import time
+
+          URL = "https://www.postesrpske.com/calc/kalkulator.html"
+
+          with sync_playwright() as p:
+              browser = p.chromium.launch(headless=True)
+              page = browser.new_page(viewport={"width": 1440, "height": 1000})
+
+              print("=" * 70)
+              print("Pošte Srpske modal diagnostic")
+              print("=" * 70)
+
+              print("\nOpening calculator...")
+              page.goto(URL, wait_until="domcontentloaded", timeout=60000)
+              page.wait_for_timeout(3000)
+
+              print("URL:", page.url)
+
+              print("\nSelecting International traffic...")
+              page.locator("#vrsta_usl").select_option("M")
+              page.wait_for_timeout(1000)
+
+              print("Selecting Stationery (Postcard)...")
+              page.locator("#uslugaM").select_option("DR")
+              page.wait_for_timeout(1000)
+
+              destination = page.locator("#zemlja")
+
+              print("\nSelecting first destination: Albanija")
+              destination.select_option(label="Albanija")
+
+              page.wait_for_selector("#tezina", state="visible", timeout=10000)
+
+              print("Filling weight: 10")
+              page.locator("#tezina").fill("10")
+
+              print("\nBefore Calculate:")
+              print("  Visible overlays:",
+                    page.locator(".msgBoxBackGround:visible").count())
+              print("  Calculate buttons:",
+                    page.locator("#dopisnicaU:visible").count())
+
+              print("\nClicking Calculate...")
+              page.locator("#dopisnicaU").click(timeout=10000)
+
+              print("Calculate click completed.")
+
+              # Give the calculator time to create/show its result window.
+              page.wait_for_timeout(2000)
+
+              print("\n" + "=" * 70)
+              print("VISIBLE MODAL / OVERLAY INFORMATION")
+              print("=" * 70)
+
+              overlays = page.locator(".msgBoxBackGround")
+              print("\nTotal .msgBoxBackGround elements:",
+                    overlays.count())
+
+              for i in range(overlays.count()):
+                  overlay = overlays.nth(i)
+
+                  try:
+                      print(f"\nOverlay #{i}")
+                      print("  ID:", overlay.get_attribute("id"))
+                      print("  class:", overlay.get_attribute("class"))
+                      print("  visible:", overlay.is_visible())
+                  except Exception as e:
+                      print("  Error inspecting overlay:", e)
+
+              visible_overlays = page.locator(".msgBoxBackGround:visible")
+              print("\nVisible overlays:",
+                    visible_overlays.count())
+
+              for i in range(visible_overlays.count()):
+                  overlay = visible_overlays.nth(i)
+
+                  print(f"\n--- Visible overlay #{i} ---")
+                  print("ID:", overlay.get_attribute("id"))
+                  print("HTML:")
+                  print(overlay.evaluate("(el) => el.outerHTML"))
+
+              print("\n" + "=" * 70)
+              print("VISIBLE DIALOG-LIKE ELEMENTS")
+              print("=" * 70)
+
+              selectors = [
+                  "[role='dialog']",
+                  ".msgBox",
+                  ".msgBoxContent",
+                  ".msgBoxBackGround",
+                  "[id*='msgBox']",
+                  "[class*='msgBox']",
+                  "[id*='message']",
+                  "[class*='message']",
+              ]
+
+              seen = set()
+
+              for selector in selectors:
+                  try:
+                      elements = page.locator(selector)
+
+                      for i in range(elements.count()):
+                          element = elements.nth(i)
+
+                          try:
+                              if not element.is_visible():
+                                  continue
+
+                              element_id = element.get_attribute("id")
+                              element_class = element.get_attribute("class")
+                              key = (element_id, element_class, selector)
+
+                              if key in seen:
+                                  continue
+
+                              seen.add(key)
+
+                              print(f"\nSelector: {selector}")
+                              print("ID:", element_id)
+                              print("Class:", element_class)
+                              print("Text:")
+                              print(element.inner_text(timeout=2000))
+                              print("HTML:")
+                              print(element.evaluate("(el) => el.outerHTML"))
+
+                          except Exception as e:
+                              print(
+                                  f"Could not inspect {selector} #{i}: {e}"
+                              )
+
+                  except Exception as e:
+                      print(f"Selector error {selector}: {e}")
+
+              print("\n" + "=" * 70)
+              print("VISIBLE BUTTONS / INPUTS IN OR NEAR MODAL")
+              print("=" * 70)
+
+              buttons = page.locator(
+                  "button:visible, input[type='button']:visible, "
+                  "input[type='submit']:visible, a:visible"
+              )
+
+              print("\nVisible clickable elements:", buttons.count())
+
+              for i in range(buttons.count()):
+                  element = buttons.nth(i)
+
+                  try:
+                      text = element.inner_text(timeout=1000).strip()
+                  except Exception:
+                      text = ""
+
+                  try:
+                      value = element.get_attribute("value")
+                  except Exception:
+                      value = None
+
+                  try:
+                      element_id = element.get_attribute("id")
+                  except Exception:
+                      element_id = None
+
+                  try:
+                      element_class = element.get_attribute("class")
+                  except Exception:
+                      element_class = None
+
+                  try:
+                      onclick = element.get_attribute("onclick")
+                  except Exception:
+                      onclick = None
+
+                  print(
+                      f"\n#{i}: "
+                      f"tag={element.evaluate('(el) => el.tagName')} "
+                      f"id={element_id!r} "
+                      f"class={element_class!r} "
+                      f"text={text!r} "
+                      f"value={value!r} "
+                      f"onclick={onclick!r}"
+                  )
+
+              print("\n" + "=" * 70)
+              print("PAGE TEXT AFTER CALCULATE")
+              print("=" * 70)
+              print(page.locator("body").inner_text())
+
+              print("\n" + "=" * 70)
+              print("DIAGNOSTIC COMPLETE")
+              print("=" * 70)
+
+              browser.close()
+          PYTHON
+
+      - name: Run modal diagnostic
+        run: |
+          python diagnose_modal.py
