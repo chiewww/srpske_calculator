@@ -1,0 +1,492 @@
+ALL DESTINATIONS
+================
+Albanija
+Alžir
+Američka Samoa
+Andora
+Angola
+Angvila
+Antigua
+Argentina
+Armenia
+Aruba
+Ascension
+Australija
+Austrija
+Avganistan
+Azerbejdžan
+Bahami
+Bahrein
+Bangladeš
+Barbados
+Belgija
+Belize
+Benin
+Bermuda
+Bjelorusija
+Bocvana
+Bolivija
+Boner
+Božićno ostrvo
+Brazil
+Bruneji
+Bugarska
+Burkina Faso
+Burundi
+Butan
+Čad
+Centralno afrička republika
+Češka
+Čile
+Crna Gora
+Danska
+Demokratska republika Kongo
+Djevičanska ostrva (britanska)
+Djevičanska ostrva (usa)
+Dominika
+Dominikanska republika
+Džibuti
+Egipat
+Ekvator
+Ekvatorijalna Gvineja
+El salvador
+Eritreja
+Estonija
+Etiopija
+Farska ostrva
+Fidži
+Filipini
+Finska
+Foklandska ostrva
+Francuska
+Francuska Guana
+Gabon
+Gambija
+Gana
+Gernzi
+Gibraltar
+Grčka
+Grenada
+Grenland
+Gruzija
+Guadalupe
+Guajana
+Guam
+Gvatemala
+Gvineja Bisao
+Haiti
+Holandija
+Honduras
+Hong kong
+Hrvatska
+Indija
+Indonezija
+Irak
+Iran
+Irska
+Island
+Istočni timor
+Italija
+Izrael
+Jamajka
+Japan
+Jemen
+Jersey
+Jordan
+Južna arfika
+Kajmanska ostrva
+Kambodža
+Kamerun
+Kanada
+Kanarska ostrva
+Kape verde
+Katar
+Kazahstan
+Kenija
+Kina
+Kipar
+Kirgistan
+Kiribati
+Kokosova ostrva
+Kolumbija
+Komori
+Kongo
+Korea d.p.r.
+Korea rep.
+Kostarika
+Kuba
+Kukova ostrva
+Kurakao
+Kuvajt
+Laos
+Latvija
+Lebanon
+Lesoto
+Liberija
+Libija
+Lihtenštajn
+Litvanija
+Luksemburg
+Madagaskar
+Madjarska
+Majot
+Makau
+Malavi
+Maldivi
+Malezija
+Mali
+Malta
+Man
+Marijanska ostrva
+Maroko
+Maršalska ostrva
+Martinik
+Mauricijus
+Mauritanija
+Meksiko
+Mikronezija
+Mjanmar (burma)
+Moldavija
+Monako
+Mongolija
+Montserrat
+Mozambik
+Namibija
+Nauru
+Nepal
+Nevis
+Niger
+Nigerija
+Nikaragva
+Niue
+Njemačka
+Norfolška ostrva
+Norveška
+Nova kaledonija
+Novi zeland
+Obala slonovače
+Oman
+Pakistan
+Palau
+Panama
+Papua nova gvineja
+Paragvaj
+Peru
+Piktern
+Polinezija, francuska
+Poljska
+Portoriko
+Portugal
+Republika Gvineja
+Reunion, island of
+Ruanda
+Rumunija
+Rusija
+Samoa
+San marino
+Sao tome i principe
+Saudiska arabija
+Sejšeli
+Senegal
+Sijera leone
+Singapur
+Sirija
+Sjeverna Makedonija
+Slovačka
+Slovenija
+Solomonova ostrva
+Somalija
+Somalilend
+Španija
+Špicberška ostrva
+Srbija
+Šri lanka
+Sudan
+Surinam
+Švajcarska
+Svazilend
+Švedska
+Sveta Helena
+Sveta Lucija
+Sveti Kits i Nevis
+Sveti Martin
+Sveti Petar i Mikelon
+Sveti Vincent i Grenadini
+Tadžikistan
+Tahiti POLINEZIJA
+Tajland
+Tajvan
+Tanzanija
+Togo
+Tokelau
+Tonga
+Trinidad i tobago
+Tristan da Kunja
+Tunis
+Turkmenistan
+Turks i kakios ostrva
+Turska
+Tuvalu
+Uganda
+Ujedinjeni arapski emirati
+Ujedinjeno kraljevstvo
+Ukrajina
+Urugvaj
+USA (amerika)
+Uzbekistan
+Valis i Futuna
+Vanatu
+Vatikan
+Venecuela
+Vijetnam
+Zambija
+Zelenortska ostrva
+Zimbabve
+
+AVAILABLE DESTINATIONS
+======================
+Albanija
+Alžir
+Američka Samoa
+Andora
+Angola
+Angvila
+Antigua
+Argentina
+Armenia
+Aruba
+Ascension
+Australija
+Austrija
+Avganistan
+Azerbejdžan
+Bahami
+Bahrein
+Bangladeš
+Barbados
+Belgija
+Belize
+Benin
+Bermuda
+Bjelorusija
+Bocvana
+Bolivija
+Boner
+Božićno ostrvo
+Brazil
+Bruneji
+Bugarska
+Burkina Faso
+Burundi
+Butan
+Čad
+Centralno afrička republika
+Češka
+Čile
+Crna Gora
+Danska
+Demokratska republika Kongo
+Djevičanska ostrva (britanska)
+Djevičanska ostrva (usa)
+Dominika
+Dominikanska republika
+Džibuti
+Egipat
+Ekvator
+Ekvatorijalna Gvineja
+El salvador
+Eritreja
+Estonija
+Etiopija
+Farska ostrva
+Fidži
+Filipini
+Finska
+Foklandska ostrva
+Francuska
+Francuska Guana
+Gabon
+Gambija
+Gana
+Gernzi
+Gibraltar
+Grčka
+Grenada
+Grenland
+Gruzija
+Guadalupe
+Guajana
+Guam
+Gvatemala
+Gvineja Bisao
+Haiti
+Holandija
+Honduras
+Hong kong
+Hrvatska
+Indija
+Indonezija
+Irak
+Iran
+Irska
+Island
+Istočni timor
+Italija
+Izrael
+Jamajka
+Japan
+Jemen
+Jersey
+Jordan
+Južna arfika
+Kajmanska ostrva
+Kambodža
+Kamerun
+Kanada
+Kanarska ostrva
+Kape verde
+Katar
+Kazahstan
+Kenija
+Kina
+Kipar
+Kirgistan
+Kiribati
+Kokosova ostrva
+Kolumbija
+Komori
+Kongo
+Korea d.p.r.
+Korea rep.
+Kostarika
+Kuba
+Kukova ostrva
+Kurakao
+Kuvajt
+Laos
+Latvija
+Lebanon
+Lesoto
+Liberija
+Libija
+Lihtenštajn
+Litvanija
+Luksemburg
+Madagaskar
+Madjarska
+Majot
+Makau
+Malavi
+Maldivi
+Malezija
+Mali
+Malta
+Man
+Marijanska ostrva
+Maroko
+Maršalska ostrva
+Martinik
+Mauricijus
+Mauritanija
+Meksiko
+Mikronezija
+Mjanmar (burma)
+Moldavija
+Monako
+Mongolija
+Montserrat
+Mozambik
+Namibija
+Nauru
+Nepal
+Nevis
+Niger
+Nigerija
+Nikaragva
+Niue
+Njemačka
+Norfolška ostrva
+Norveška
+Nova kaledonija
+Novi zeland
+Obala slonovače
+Oman
+Pakistan
+Palau
+Panama
+Papua nova gvineja
+Paragvaj
+Peru
+Piktern
+Polinezija, francuska
+Poljska
+Portoriko
+Portugal
+Republika Gvineja
+Reunion, island of
+Ruanda
+Rumunija
+Rusija
+Samoa
+San marino
+Sao tome i principe
+Saudiska arabija
+Sejšeli
+Senegal
+Sijera leone
+Singapur
+Sirija
+Sjeverna Makedonija
+Slovačka
+Slovenija
+Solomonova ostrva
+Somalija
+Somalilend
+Španija
+Špicberška ostrva
+Srbija
+Šri lanka
+Sudan
+Surinam
+Švajcarska
+Svazilend
+Švedska
+Sveta Helena
+Sveta Lucija
+Sveti Kits i Nevis
+Sveti Martin
+Sveti Petar i Mikelon
+Sveti Vincent i Grenadini
+Tadžikistan
+Tahiti POLINEZIJA
+Tajland
+Tajvan
+Tanzanija
+Togo
+Tokelau
+Tonga
+Trinidad i tobago
+Tristan da Kunja
+Tunis
+Turkmenistan
+Turks i kakios ostrva
+Turska
+Tuvalu
+Uganda
+Ujedinjeni arapski emirati
+Ujedinjeno kraljevstvo
+Ukrajina
+Urugvaj
+USA (amerika)
+Uzbekistan
+Valis i Futuna
+Vanatu
+Vatikan
+Venecuela
+Vijetnam
+Zambija
+Zelenortska ostrva
+Zimbabve
+
+SUSPENDED DESTINATIONS
+======================
