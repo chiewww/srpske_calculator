@@ -2,8 +2,8 @@ name: Check Pošte Srpske Calculator
 
 on:
   schedule:
-    # Run every 6 hours
-    - cron: "0 */6 * * *"
+    # Run once every day at 00:00 UTC
+    - cron: "0 0 * * *"
 
   # Allows you to run the workflow manually from GitHub
   workflow_dispatch:
@@ -55,7 +55,7 @@ jobs:
           python check_srpske_calculator.py
 
       # ------------------------------------------------------------
-      # 6. Show the generated results
+      # 6. Display the generated results
       # ------------------------------------------------------------
       - name: Display results
         run: |
@@ -65,7 +65,7 @@ jobs:
           cat results.txt
 
       # ------------------------------------------------------------
-      # 7. Commit results.txt if it changed
+      # 7. Commit results.txt only if it changed
       # ------------------------------------------------------------
       - name: Commit updated results
         run: |
