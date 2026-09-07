@@ -1,285 +1,223 @@
-from playwright.sync_api import sync_playwright
-import time
+from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
 
 URL = "https://www.postesrpske.com/calc/kalkulator.html"
+
+OUTPUT_FILE = "results.txt"
+WEIGHT = "10"
+
+SERVICE_VALUE = "DR"
+TRAFFIC_VALUE = "M"
+
+DESTINATION_SELECTOR = "#zemlja"
+WEIGHT_SELECTOR = "#tezina"
+CALCULATE_SELECTOR = "#dopisnicaU"
+
+AVAILABLE_MARKER = "Price Stationery (postcard)"
+
+
+def get_destinations(page):
+    destination_select = page.locator(DESTINATION_SELECTOR)
+
+    count = destination_select.locator("option").count()
+
+    destinations = []
+
+    for i in range(count):
+        option = destination_select.locator("option").nth(i)
+
+        text = option.inner_text().strip()
+        value = option.get_attribute("value")
+
+        # Ignore the empty/default option.
+        if text and value:
+            destinations.append((text, value))
+
+    return destinations
+
+
+def calculate_destination(page, destination_name, destination_value):
+    print(f"Checking: {destination_name}")
+
+    # Select destination.
+    page.locator(DESTINATION_SELECTOR).select_option(destination_value)
+
+    # The weight field is created dynamically after destination selection.
+    try:
+        page.locator(WEIGHT_SELECTOR).wait_for(
+            state="visible",
+            timeout=10000
+        )
+    except PlaywrightTimeoutError:
+        print(f"  ERROR: Weight field did not appear for {destination_name}")
+        return False
+
+    # Enter 10 grams.
+    weight = page.locator(WEIGHT_SELECTOR)
+
+    weight.fill(WEIGHT)
+
+    # Click Calculate.
+    calculate_button = page.locator(CALCULATE_SELECTOR)
+
+    try:
+        calculate_button.wait_for(
+            state="visible",
+            timeout=10000
+        )
+    except PlaywrightTimeoutError:
+        print(f"  ERROR: Calculate button did not appear for {destination_name}")
+        return False
+
+    calculate_button.click()
+
+    # Give the calculator JavaScript time to update the result.
+    page.wait_for_timeout(500)
+
+    # Look for the exact availability marker anywhere in the visible page.
+    body_text = page.locator("body").inner_text()
+
+    if AVAILABLE_MARKER.lower() in body_text.lower():
+        print("  AVAILABLE")
+        return True
+
+    print("  SUSPENDED")
+    return False
 
 
 def main():
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
-        page = browser.new_page(viewport={"width": 1400, "height": 1000})
 
-        print("=" * 80)
-        print("OPENING CALCULATOR")
-        print("=" * 80)
-
-        page.goto(URL, wait_until="networkidle", timeout=60000)
-        page.wait_for_timeout(3000)
-
-        print(f"URL: {page.url}")
-        print(f"Title: {page.title()}")
-
-        # ------------------------------------------------------------
-        # Select International traffic
-        # ------------------------------------------------------------
-        print("\n" + "=" * 80)
-        print("SELECTING INTERNATIONAL TRAFFIC")
-        print("=" * 80)
-
-        page.locator("#vrsta_usl").select_option("M")
-        page.wait_for_timeout(1500)
-
-        print("Selected International traffic")
-
-        # ------------------------------------------------------------
-        # Select Stationery (Postcard)
-        # ------------------------------------------------------------
-        print("\n" + "=" * 80)
-        print("SELECTING STATIONERY (POSTCARD)")
-        print("=" * 80)
-
-        page.locator("#uslugaM").select_option("DR")
-        page.wait_for_timeout(1500)
-
-        print("Selected Stationery (Postcard)")
-
-        # ------------------------------------------------------------
-        # Destination inventory
-        # ------------------------------------------------------------
-        print("\n" + "=" * 80)
-        print("DESTINATION INVENTORY")
-        print("=" * 80)
-
-        destination_select = page.locator("#zemlja")
-
-        count = destination_select.locator("option").count()
-        print(f"Total option elements: {count}")
-
-        destinations = []
-
-        for i in range(count):
-            option = destination_select.locator("option").nth(i)
-
-            text = option.inner_text().strip()
-            value = option.get_attribute("value")
-
-            if text and value:
-                destinations.append((text, value))
-
-        print(f"Destinations found: {len(destinations)}")
-
-        if not destinations:
-            print("ERROR: No destinations found.")
-            browser.close()
-            return
-
-        print("\nFirst 10 destinations:")
-
-        for i, (text, value) in enumerate(destinations[:10]):
-            print(f"  {i}: text={text!r}, value={value!r}")
-
-        # ------------------------------------------------------------
-        # Select FIRST destination
-        # ------------------------------------------------------------
-        first_name, first_value = destinations[0]
-
-        print("\n" + "=" * 80)
-        print("SELECTING FIRST DESTINATION")
-        print("=" * 80)
-
-        print(f"Destination text: {first_name}")
-        print(f"Destination value: {first_value}")
-
-        destination_select.select_option(first_value)
-
-        # Give JavaScript plenty of time to react.
-        page.wait_for_timeout(3000)
-
-        print("Destination selected.")
-
-        # ------------------------------------------------------------
-        # Inspect page after destination selection
-        # ------------------------------------------------------------
-        print("\n" + "=" * 80)
-        print("PAGE AFTER DESTINATION SELECTION")
-        print("=" * 80)
-
-        print("\nVisible page text:")
-        print("-" * 80)
-        print(page.locator("body").inner_text())
-        print("-" * 80)
-
-        # ------------------------------------------------------------
-        # Inspect inputs
-        # ------------------------------------------------------------
-        print("\n" + "=" * 80)
-        print("INPUT ELEMENTS AFTER DESTINATION SELECTION")
-        print("=" * 80)
-
-        inputs = page.locator("input")
-        input_count = inputs.count()
-
-        print(f"Input count: {input_count}")
-
-        for i in range(input_count):
-            el = inputs.nth(i)
-
-            try:
-                print(f"\nINPUT #{i}")
-                print(f"  type={el.get_attribute('type')!r}")
-                print(f"  id={el.get_attribute('id')!r}")
-                print(f"  name={el.get_attribute('name')!r}")
-                print(f"  class={el.get_attribute('class')!r}")
-                print(f"  value={el.input_value()!r}")
-                print(f"  placeholder={el.get_attribute('placeholder')!r}")
-                print(f"  visible={el.is_visible()}")
-            except Exception as e:
-                print(f"  ERROR inspecting input: {e}")
-
-        # ------------------------------------------------------------
-        # Inspect selects
-        # ------------------------------------------------------------
-        print("\n" + "=" * 80)
-        print("SELECT ELEMENTS AFTER DESTINATION SELECTION")
-        print("=" * 80)
-
-        selects = page.locator("select")
-        select_count = selects.count()
-
-        print(f"Select count: {select_count}")
-
-        for i in range(select_count):
-            el = selects.nth(i)
-
-            try:
-                print(f"\nSELECT #{i}")
-                print(f"  id={el.get_attribute('id')!r}")
-                print(f"  name={el.get_attribute('name')!r}")
-                print(f"  visible={el.is_visible()}")
-                print(f"  selected={el.input_value()!r}")
-            except Exception as e:
-                print(f"  ERROR inspecting select: {e}")
-
-        # ------------------------------------------------------------
-        # Search for weight-related elements AFTER destination selection
-        # ------------------------------------------------------------
-        print("\n" + "=" * 80)
-        print("WEIGHT-RELATED ELEMENTS AFTER DESTINATION SELECTION")
-        print("=" * 80)
-
-        all_elements = page.locator("*")
-        element_count = all_elements.count()
-
-        found_weight = 0
-
-        for i in range(element_count):
-            el = all_elements.nth(i)
-
-            try:
-                text = el.inner_text(timeout=100).strip()
-            except Exception:
-                text = ""
-
-            attrs = []
-
-            for attr in ["id", "name", "class", "type", "placeholder", "value"]:
-                try:
-                    value = el.get_attribute(attr)
-                except Exception:
-                    value = None
-
-                if value:
-                    attrs.append(f"{attr}={value!r}")
-
-            combined = (text + " " + " ".join(attrs)).lower()
-
-            if any(word in combined for word in [
-                "weight",
-                "mass",
-                "gram",
-                "grams",
-                "težina",
-                "grama",
-                "gramaža"
-            ]):
-                if el.is_visible():
-                    found_weight += 1
-
-                    print(f"\nELEMENT #{i}: <{el.evaluate('(e) => e.tagName').lower()}>")
-                    print(f"  text={text[:500]!r}")
-                    print(f"  {' '.join(attrs)}")
-
-        print(f"\nVisible weight-related elements found: {found_weight}")
-
-        # ------------------------------------------------------------
-        # Inspect buttons and clickable elements
-        # ------------------------------------------------------------
-        print("\n" + "=" * 80)
-        print("BUTTON / CLICKABLE ELEMENTS")
-        print("=" * 80)
-
-        buttons = page.locator("button, input[type='button'], input[type='submit'], a")
-        button_count = buttons.count()
-
-        print(f"Potential clickable elements: {button_count}")
-
-        for i in range(button_count):
-            el = buttons.nth(i)
-
-            try:
-                if not el.is_visible():
-                    continue
-
-                tag = el.evaluate("(e) => e.tagName")
-                text = el.inner_text(timeout=100).strip()
-
-                print(f"\nCLICKABLE #{i}")
-                print(f"  tag={tag!r}")
-                print(f"  text={text!r}")
-                print(f"  id={el.get_attribute('id')!r}")
-                print(f"  name={el.get_attribute('name')!r}")
-                print(f"  type={el.get_attribute('type')!r}")
-                print(f"  value={el.get_attribute('value')!r}")
-                print(f"  class={el.get_attribute('class')!r}")
-
-            except Exception as e:
-                print(f"  ERROR: {e}")
-
-        # ------------------------------------------------------------
-        # Save HTML for inspection in GitHub Actions
-        # ------------------------------------------------------------
-        print("\n" + "=" * 80)
-        print("SAVING HTML")
-        print("=" * 80)
-
-        html = page.content()
-
-        with open("calculator_after_destination.html", "w", encoding="utf-8") as f:
-            f.write(html)
-
-        print("Saved calculator_after_destination.html")
-
-        # ------------------------------------------------------------
-        # Take screenshot
-        # ------------------------------------------------------------
-        print("\n" + "=" * 80)
-        print("TAKING SCREENSHOT")
-        print("=" * 80)
-
-        page.screenshot(
-            path="calculator_after_destination.png",
-            full_page=True
+        page = browser.new_page(
+            viewport={
+                "width": 1400,
+                "height": 1000
+            }
         )
 
-        print("Saved calculator_after_destination.png")
+        print("=" * 70)
+        print("Pošte Srpske calculator checker")
+        print("=" * 70)
+
+        print("\nOpening calculator...")
+        page.goto(
+            URL,
+            wait_until="networkidle",
+            timeout=60000
+        )
+
+        page.wait_for_timeout(2000)
 
         # ------------------------------------------------------------
-        # Do NOT create results.txt yet.
-        # This is still a diagnostic run.
+        # Select International traffic.
         # ------------------------------------------------------------
-        print("\n" + "=" * 80)
-        print("DIAGNOSTIC COMPLETE")
-        print("=" * 80)
+        print("Selecting International traffic...")
+
+        page.locator("#vrsta_usl").select_option(TRAFFIC_VALUE)
+
+        page.wait_for_timeout(1000)
+
+        # ------------------------------------------------------------
+        # Select Stationery (Postcard).
+        # ------------------------------------------------------------
+        print("Selecting Stationery (Postcard)...")
+
+        page.locator("#uslugaM").select_option(SERVICE_VALUE)
+
+        page.wait_for_timeout(1000)
+
+        # ------------------------------------------------------------
+        # Get all destinations.
+        # ------------------------------------------------------------
+        destinations = get_destinations(page)
+
+        print(f"\nFound {len(destinations)} destinations.")
+
+        if not destinations:
+            raise RuntimeError("No destinations were found.")
+
+        # ------------------------------------------------------------
+        # Check every destination.
+        # ------------------------------------------------------------
+        available = []
+        suspended = []
+
+        for index, (destination_name, destination_value) in enumerate(
+            destinations,
+            start=1
+        ):
+            print(
+                f"\n[{index}/{len(destinations)}] "
+                f"{destination_name}"
+            )
+
+            try:
+                is_available = calculate_destination(
+                    page,
+                    destination_name,
+                    destination_value
+                )
+
+                if is_available:
+                    available.append(destination_name)
+                else:
+                    suspended.append(destination_name)
+
+            except Exception as e:
+                print(
+                    f"  ERROR while checking {destination_name}: {e}"
+                )
+
+                # If something unexpected happens, classify it as
+                # suspended rather than silently omitting the country.
+                suspended.append(destination_name)
+
+        # ------------------------------------------------------------
+        # Write results.txt.
+        #
+        # No timestamp is included because changedetection.io
+        # should detect only actual calculator-result changes.
+        # ------------------------------------------------------------
+        with open(
+            OUTPUT_FILE,
+            "w",
+            encoding="utf-8",
+            newline="\n"
+        ) as f:
+
+            f.write("ALL DESTINATIONS\n")
+            f.write("================\n")
+
+            for destination in destinations:
+                f.write(f"{destination[0]}\n")
+
+            f.write("\n")
+
+            f.write("AVAILABLE DESTINATIONS\n")
+            f.write("======================\n")
+
+            for destination in available:
+                f.write(f"{destination}\n")
+
+            f.write("\n")
+
+            f.write("SUSPENDED DESTINATIONS\n")
+            f.write("======================\n")
+
+            for destination in suspended:
+                f.write(f"{destination}\n")
+
+        # ------------------------------------------------------------
+        # Summary.
+        # ------------------------------------------------------------
+        print("\n" + "=" * 70)
+        print("CHECK COMPLETE")
+        print("=" * 70)
+
+        print(f"Total destinations:     {len(destinations)}")
+        print(f"Available destinations: {len(available)}")
+        print(f"Suspended destinations: {len(suspended)}")
+        print(f"Results written to:     {OUTPUT_FILE}")
 
         browser.close()
 
