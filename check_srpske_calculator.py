@@ -1,225 +1,293 @@
 from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
 
+
 URL = "https://www.postesrpske.com/calc/kalkulator.html"
-
 OUTPUT_FILE = "results.txt"
-WEIGHT = "10"
 
-SERVICE_VALUE = "DR"
 TRAFFIC_VALUE = "M"
+SERVICE_VALUE = "DR"
+WEIGHT = "10"
 
 DESTINATION_SELECTOR = "#zemlja"
 WEIGHT_SELECTOR = "#tezina"
 CALCULATE_SELECTOR = "#dopisnicaU"
 
+MODAL_SELECTOR = ".msgBox:visible"
+MODAL_CONTENT_SELECTOR = ".msgBoxContent"
+MODAL_CLOSE_SELECTOR = ".msgBoxButtons input.msgButton"
+
 AVAILABLE_MARKER = "Price Stationery (postcard)"
 
 
-def get_destinations(page):
-    destination_select = page.locator(DESTINATION_SELECTOR)
+def close_result_modal(page):
+    """
+    Close the calculator result modal and wait for its overlay to disappear.
+    """
 
-    count = destination_select.locator("option").count()
+    modal = page.locator(MODAL_SELECTOR)
 
-    destinations = []
+    if modal.count() == 0:
+        return
 
-    for i in range(count):
-        option = destination_select.locator("option").nth(i)
+    if not modal.is_visible():
+        return
 
-        text = option.inner_text().strip()
-        value = option.get_attribute("value")
+    close_button = modal.locator(MODAL_CLOSE_SELECTOR)
 
-        # Ignore the empty/default option.
-        if text and value:
-            destinations.append((text, value))
+    if close_button.count() > 0 and close_button.first.is_visible():
+        close_button.first.click(timeout=5000)
 
-    return destinations
+        try:
+            page.locator(".msgBoxBackGround:visible").wait_for(
+                state="hidden",
+                timeout=5000
+            )
+        except PlaywrightTimeoutError:
+            # If the site's JavaScript removes the modal slightly differently,
+            # give it a short additional moment.
+            page.wait_for_timeout(300)
+
+    else:
+        # Fallback: press Escape if the close image cannot be clicked.
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(300)
 
 
-def calculate_destination(page, destination_name, destination_value):
+def calculate_destination(page, destination_name):
+    """
+    Select a destination, enter weight 10g, calculate, read the modal,
+    classify the destination, and close the modal.
+    """
+
     print(f"Checking: {destination_name}")
 
-    # Select destination.
-    page.locator(DESTINATION_SELECTOR).select_option(destination_value)
+    destination = page.locator(DESTINATION_SELECTOR)
 
-    # The weight field is created dynamically after destination selection.
-    try:
-        page.locator(WEIGHT_SELECTOR).wait_for(
-            state="visible",
-            timeout=10000
-        )
-    except PlaywrightTimeoutError:
-        print(f"  ERROR: Weight field did not appear for {destination_name}")
-        return False
+    # Select destination.
+    destination.select_option(label=destination_name)
+
+    # The weight field is created dynamically after selecting a destination.
+    page.locator(WEIGHT_SELECTOR).wait_for(
+        state="visible",
+        timeout=10000
+    )
 
     # Enter 10 grams.
     weight = page.locator(WEIGHT_SELECTOR)
-
     weight.fill(WEIGHT)
 
+    # Make sure the result modal from a previous calculation is gone.
+    visible_modal = page.locator(MODAL_SELECTOR)
+
+    if visible_modal.count() > 0 and visible_modal.first.is_visible():
+        close_result_modal(page)
+
     # Click Calculate.
-    calculate_button = page.locator(CALCULATE_SELECTOR)
+    page.locator(CALCULATE_SELECTOR).click(timeout=10000)
+
+    # Wait for the result modal to appear.
+    modal = page.locator(MODAL_SELECTOR)
 
     try:
-        calculate_button.wait_for(
+        modal.wait_for(
             state="visible",
             timeout=10000
         )
     except PlaywrightTimeoutError:
-        print(f"  ERROR: Calculate button did not appear for {destination_name}")
-        return False
+        print("  ERROR: Calculation result modal did not appear.")
+        return "error"
 
-    calculate_button.click()
+    # Read the result specifically from the modal.
+    content = modal.locator(MODAL_CONTENT_SELECTOR)
 
-    # Give the calculator JavaScript time to update the result.
-    page.wait_for_timeout(500)
+    if content.count() > 0:
+        result_text = content.inner_text()
+    else:
+        result_text = modal.inner_text()
 
-    # Look for the exact availability marker anywhere in the visible page.
-    body_text = page.locator("body").inner_text()
+    print("  Result:")
+    print("  " + result_text.replace("\n", "\n  "))
 
-    if AVAILABLE_MARKER.lower() in body_text.lower():
+    # Determine availability from the actual calculation result.
+    if AVAILABLE_MARKER.lower() in result_text.lower():
+        status = "available"
         print("  AVAILABLE")
-        return True
+    else:
+        status = "suspended"
+        print("  SUSPENDED")
 
-    print("  SUSPENDED")
-    return False
+    # IMPORTANT:
+    # Close the result modal before moving to the next destination.
+    close_result_modal(page)
+
+    return status
 
 
 def main():
+    print("=" * 70)
+    print("Pošte Srpske calculator checker")
+    print("=" * 70)
+
+    available = []
+    suspended = []
+    errors = []
+
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
 
         page = browser.new_page(
             viewport={
-                "width": 1400,
+                "width": 1440,
                 "height": 1000
             }
         )
 
-        print("=" * 70)
-        print("Pošte Srpske calculator checker")
-        print("=" * 70)
+        # Shorter default timeout so a genuine problem doesn't stall
+        # the entire GitHub Actions run for many minutes.
+        page.set_default_timeout(10000)
 
-        print("\nOpening calculator...")
+        print("Opening calculator...")
         page.goto(
             URL,
-            wait_until="networkidle",
+            wait_until="domcontentloaded",
             timeout=60000
         )
 
         page.wait_for_timeout(2000)
 
-        # ------------------------------------------------------------
-        # Select International traffic.
-        # ------------------------------------------------------------
         print("Selecting International traffic...")
-
-        page.locator("#vrsta_usl").select_option(TRAFFIC_VALUE)
+        page.locator("#vrsta_usl").select_option(
+            TRAFFIC_VALUE
+        )
 
         page.wait_for_timeout(1000)
 
-        # ------------------------------------------------------------
-        # Select Stationery (Postcard).
-        # ------------------------------------------------------------
         print("Selecting Stationery (Postcard)...")
-
-        page.locator("#uslugaM").select_option(SERVICE_VALUE)
+        page.locator("#uslugaM").select_option(
+            SERVICE_VALUE
+        )
 
         page.wait_for_timeout(1000)
 
-        # ------------------------------------------------------------
-        # Get all destinations.
-        # ------------------------------------------------------------
-        destinations = get_destinations(page)
+        # Get all destination names from the dropdown.
+        destination_select = page.locator(DESTINATION_SELECTOR)
 
-        print(f"\nFound {len(destinations)} destinations.")
+        options = destination_select.locator("option")
 
-        if not destinations:
-            raise RuntimeError("No destinations were found.")
+        destinations = []
 
-        # ------------------------------------------------------------
-        # Check every destination.
-        # ------------------------------------------------------------
-        available = []
-        suspended = []
+        for i in range(options.count()):
+            option = options.nth(i)
 
-        for index, (destination_name, destination_value) in enumerate(
-            destinations,
-            start=1
-        ):
+            value = option.get_attribute("value")
+            label = option.inner_text().strip()
+
+            # Ignore the empty placeholder option.
+            if value and label:
+                destinations.append(
+                    {
+                        "value": value,
+                        "label": label
+                    }
+                )
+
+        print(f"Found {len(destinations)} destinations.")
+        print()
+
+        for index, destination in enumerate(destinations, start=1):
+            destination_name = destination["label"]
+
             print(
-                f"\n[{index}/{len(destinations)}] "
+                f"[{index}/{len(destinations)}] "
                 f"{destination_name}"
             )
 
             try:
-                is_available = calculate_destination(
+                status = calculate_destination(
                     page,
-                    destination_name,
-                    destination_value
+                    destination_name
                 )
 
-                if is_available:
+                if status == "available":
                     available.append(destination_name)
-                else:
+
+                elif status == "suspended":
                     suspended.append(destination_name)
 
-            except Exception as e:
+                else:
+                    errors.append(destination_name)
+
+            except Exception as exc:
                 print(
-                    f"  ERROR while checking {destination_name}: {e}"
+                    f"  ERROR while checking "
+                    f"{destination_name}: {exc}"
                 )
 
-                # If something unexpected happens, classify it as
-                # suspended rather than silently omitting the country.
-                suspended.append(destination_name)
+                errors.append(destination_name)
 
-        # ------------------------------------------------------------
-        # Write results.txt.
-        #
-        # No timestamp is included because changedetection.io
-        # should detect only actual calculator-result changes.
-        # ------------------------------------------------------------
-        with open(
-            OUTPUT_FILE,
-            "w",
-            encoding="utf-8",
-            newline="\n"
-        ) as f:
+                # Try to recover from any modal/overlay that may have
+                # been left behind by the calculator.
+                try:
+                    close_result_modal(page)
+                except Exception:
+                    pass
 
-            f.write("ALL DESTINATIONS\n")
-            f.write("================\n")
-
-            for destination in destinations:
-                f.write(f"{destination[0]}\n")
-
-            f.write("\n")
-
-            f.write("AVAILABLE DESTINATIONS\n")
-            f.write("======================\n")
-
-            for destination in available:
-                f.write(f"{destination}\n")
-
-            f.write("\n")
-
-            f.write("SUSPENDED DESTINATIONS\n")
-            f.write("======================\n")
-
-            for destination in suspended:
-                f.write(f"{destination}\n")
-
-        # ------------------------------------------------------------
-        # Summary.
-        # ------------------------------------------------------------
-        print("\n" + "=" * 70)
-        print("CHECK COMPLETE")
-        print("=" * 70)
-
-        print(f"Total destinations:     {len(destinations)}")
-        print(f"Available destinations: {len(available)}")
-        print(f"Suspended destinations: {len(suspended)}")
-        print(f"Results written to:     {OUTPUT_FILE}")
+            print()
 
         browser.close()
+
+    # ---------------------------------------------------------------
+    # Write results.txt
+    #
+    # No timestamp is included because changedetection.io should only
+    # detect actual changes to the calculator results.
+    # ---------------------------------------------------------------
+
+    with open(
+        OUTPUT_FILE,
+        "w",
+        encoding="utf-8"
+    ) as output:
+
+        output.write("ALL DESTINATIONS\n")
+        output.write("================\n")
+
+        for destination in destinations:
+            output.write(
+                destination["label"] + "\n"
+            )
+
+        output.write("\n")
+
+        output.write("AVAILABLE DESTINATIONS\n")
+        output.write("======================\n")
+
+        for destination_name in available:
+            output.write(destination_name + "\n")
+
+        output.write("\n")
+
+        output.write("SUSPENDED DESTINATIONS\n")
+        output.write("======================\n")
+
+        for destination_name in suspended:
+            output.write(destination_name + "\n")
+
+    print("=" * 70)
+    print("CHECK COMPLETE")
+    print("=" * 70)
+    print(f"Total destinations: {len(destinations)}")
+    print(f"Available: {len(available)}")
+    print(f"Suspended: {len(suspended)}")
+    print(f"Technical errors: {len(errors)}")
+    print(f"Results written to: {OUTPUT_FILE}")
+    print("=" * 70)
+
+    if errors:
+        print()
+        print("Destinations with technical errors:")
+        for destination_name in errors:
+            print(f"  - {destination_name}")
 
 
 if __name__ == "__main__":
