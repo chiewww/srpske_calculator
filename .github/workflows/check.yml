@@ -1,4 +1,4 @@
-name: Check Pošte Srpske Calculator
+name: Srpske Calculator
 
 on:
   schedule:
