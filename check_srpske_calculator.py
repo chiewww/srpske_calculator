@@ -6,30 +6,28 @@ Pošte Srpske calculator destination availability checker.
 Website:
     https://www.postesrpske.com/calc/kalkulator.html
 
-Process:
+Procedure:
 
 1. Open the English calculator.
-2. Select "International traffic" for Type of service.
-3. Select "Stationery (Postcard)" for Service.
+2. Select "International traffic".
+3. Select "Stationery (Postcard)".
 4. Read ALL destinations from the Destination information dropdown.
 5. For every destination:
-       - select the destination
+       - select destination
        - enter weight 10
        - click Calculate
-       - check whether "Price Stationery (postcard)" appears
-6. Write one output file:
-       results.txt
+       - check for "Price Stationery (postcard)"
+6. Write results.txt.
 
 Availability rule:
 
     "Price Stationery (postcard)" found
         = AVAILABLE
 
-    "Price Stationery (postcard)" not found
+    Otherwise
         = SUSPENDED
 
-The output file intentionally contains no timestamp so that
-changedetection.io only detects actual changes.
+No timestamp is written to results.txt.
 """
 
 from pathlib import Path
@@ -73,76 +71,358 @@ def clean_text(value):
     if value is None:
         return ""
 
-    return " ".join(value.split()).strip()
+    return " ".join(str(value).split()).strip()
 
 
 # ================================================================
-# DEBUGGING
+# DEBUG: PRINT ALL FORM CONTROLS
 # ================================================================
 
-def print_dropdown_information(page):
+def print_form_controls(page):
     """
-    Print every SELECT and its options to the GitHub Actions log.
+    Print every visible form control and useful attributes.
+
+    This is deliberately verbose because the calculator uses
+    dynamically generated controls and the exact Weight element
+    is not exposed clearly by the normal HTML text representation.
     """
 
     print()
-    print("=" * 70)
-    print("CURRENT DROPDOWNS")
-    print("=" * 70)
+    print("=" * 80)
+    print("FORM CONTROL INVENTORY")
+    print("=" * 80)
+
+    # ------------------------------------------------------------
+    # SELECTS
+    # ------------------------------------------------------------
 
     selects = page.locator("select")
 
-    print(
-        f"Number of SELECT elements: {selects.count()}"
-    )
+    print()
+    print(f"SELECT elements: {selects.count()}")
 
     for index in range(selects.count()):
 
-        select = selects.nth(index)
+        element = selects.nth(index)
 
         print()
+        print(f"SELECT #{index}")
         print(
-            f"SELECT #{index}"
+            f"  id={element.get_attribute('id')!r}"
+        )
+        print(
+            f"  name={element.get_attribute('name')!r}"
+        )
+        print(
+            f"  class={element.get_attribute('class')!r}"
+        )
+        print(
+            f"  visible={element.is_visible()}"
         )
 
-        print(
-            f"  id: {select.get_attribute('id')}"
-        )
+        options = element.locator("option")
 
         print(
-            f"  name: {select.get_attribute('name')}"
-        )
-
-        options = select.locator("option")
-
-        print(
-            f"  options: {options.count()}"
+            f"  option_count={options.count()}"
         )
 
         for option_index in range(
-            options.count()
+            min(options.count(), 15)
         ):
 
             option = options.nth(
                 option_index
             )
 
-            text = clean_text(
-                option.inner_text()
-            )
-
-            value = option.get_attribute(
-                "value"
-            )
-
             print(
-                f"    {option_index}: "
-                f"text={text!r}, "
-                f"value={value!r}"
+                f"    option {option_index}: "
+                f"text={clean_text(option.inner_text())!r}, "
+                f"value={option.get_attribute('value')!r}"
             )
+
+        if options.count() > 15:
+            print(
+                f"    ... {options.count() - 15} more options"
+            )
+
+    # ------------------------------------------------------------
+    # INPUTS
+    # ------------------------------------------------------------
+
+    inputs = page.locator("input")
 
     print()
-    print("=" * 70)
+    print(f"INPUT elements: {inputs.count()}")
+
+    for index in range(inputs.count()):
+
+        element = inputs.nth(index)
+
+        print()
+        print(f"INPUT #{index}")
+
+        attributes = [
+            "type",
+            "id",
+            "name",
+            "class",
+            "value",
+            "placeholder",
+            "aria-label",
+            "title",
+            "min",
+            "max",
+            "step",
+        ]
+
+        for attribute in attributes:
+
+            value = element.get_attribute(
+                attribute
+            )
+
+            if value is not None:
+
+                print(
+                    f"  {attribute}={value!r}"
+                )
+
+        print(
+            f"  visible={element.is_visible()}"
+        )
+
+    # ------------------------------------------------------------
+    # TEXTAREAS
+    # ------------------------------------------------------------
+
+    textareas = page.locator("textarea")
+
+    print()
+    print(
+        f"TEXTAREA elements: {textareas.count()}"
+    )
+
+    for index in range(
+        textareas.count()
+    ):
+
+        element = textareas.nth(index)
+
+        print()
+        print(
+            f"TEXTAREA #{index}"
+        )
+
+        print(
+            f"  id={element.get_attribute('id')!r}"
+        )
+
+        print(
+            f"  name={element.get_attribute('name')!r}"
+        )
+
+        print(
+            f"  placeholder={element.get_attribute('placeholder')!r}"
+        )
+
+        print(
+            f"  class={element.get_attribute('class')!r}"
+        )
+
+        print(
+            f"  visible={element.is_visible()}"
+        )
+
+    # ------------------------------------------------------------
+    # CONTENTEDITABLE
+    # ------------------------------------------------------------
+
+    content_editable = page.locator(
+        "[contenteditable='true']"
+    )
+
+    print()
+    print(
+        "CONTENTEDITABLE elements: "
+        f"{content_editable.count()}"
+    )
+
+    for index in range(
+        content_editable.count()
+    ):
+
+        element = content_editable.nth(index)
+
+        print()
+        print(
+            f"CONTENTEDITABLE #{index}"
+        )
+
+        print(
+            f"  tag={element.evaluate('(e) => e.tagName')}"
+        )
+
+        print(
+            f"  id={element.get_attribute('id')!r}"
+        )
+
+        print(
+            f"  name={element.get_attribute('name')!r}"
+        )
+
+        print(
+            f"  class={element.get_attribute('class')!r}"
+        )
+
+        print(
+            f"  aria-label={element.get_attribute('aria-label')!r}"
+        )
+
+        print(
+            f"  visible={element.is_visible()}"
+        )
+
+    # ------------------------------------------------------------
+    # BUTTONS
+    # ------------------------------------------------------------
+
+    buttons = page.locator(
+        "button, input[type='button'], "
+        "input[type='submit'], [role='button']"
+    )
+
+    print()
+    print(
+        f"BUTTON elements: {buttons.count()}"
+    )
+
+    for index in range(
+        buttons.count()
+    ):
+
+        element = buttons.nth(index)
+
+        if not element.is_visible():
+            continue
+
+        try:
+
+            text = clean_text(
+                element.inner_text()
+            )
+
+        except Exception:
+
+            text = ""
+
+        value = element.get_attribute(
+            "value"
+        )
+
+        print()
+        print(
+            f"BUTTON #{index}"
+        )
+
+        print(
+            f"  tag={element.evaluate('(e) => e.tagName')}"
+        )
+
+        print(
+            f"  text={text!r}"
+        )
+
+        print(
+            f"  value={value!r}"
+        )
+
+        print(
+            f"  id={element.get_attribute('id')!r}"
+        )
+
+        print(
+            f"  name={element.get_attribute('name')!r}"
+        )
+
+        print(
+            f"  class={element.get_attribute('class')!r}"
+        )
+
+    print()
+    print("=" * 80)
+    print()
+
+
+# ================================================================
+# DEBUG: PRINT LABELS AND NEARBY TEXT
+# ================================================================
+
+def print_weight_related_elements(page):
+    """
+    Print elements containing the word Weight or similar wording.
+    """
+
+    print()
+    print("=" * 80)
+    print("WEIGHT-RELATED ELEMENTS")
+    print("=" * 80)
+
+    # Search visible text nodes/elements containing Weight.
+    locator = page.locator(
+        "text=/weight/i"
+    )
+
+    print(
+        f"Elements containing 'weight': "
+        f"{locator.count()}"
+    )
+
+    for index in range(
+        min(locator.count(), 30)
+    ):
+
+        element = locator.nth(index)
+
+        try:
+            text = clean_text(
+                element.inner_text()
+            )
+        except Exception:
+            text = ""
+
+        try:
+            tag = element.evaluate(
+                "(e) => e.tagName"
+            )
+        except Exception:
+            tag = "?"
+
+        print()
+        print(
+            f"#{index}: tag={tag}, text={text!r}"
+        )
+
+        for attribute in [
+            "id",
+            "name",
+            "class",
+            "for",
+            "type",
+            "placeholder",
+            "aria-label",
+        ]:
+
+            value = element.get_attribute(
+                attribute
+            )
+
+            if value is not None:
+                print(
+                    f"  {attribute}={value!r}"
+                )
+
+    print()
+    print("=" * 80)
     print()
 
 
@@ -155,15 +435,16 @@ def find_select_containing_option(
     option_text,
 ):
     """
-    Find a SELECT containing an option whose visible text matches
-    option_text.
+    Find a SELECT containing an exact visible option.
     """
 
     wanted = clean_text(
         option_text
     ).casefold()
 
-    selects = page.locator("select")
+    selects = page.locator(
+        "select"
+    )
 
     for select_index in range(
         selects.count()
@@ -190,6 +471,7 @@ def find_select_containing_option(
             )
 
             if text.casefold() == wanted:
+
                 return select
 
     return None
@@ -200,7 +482,7 @@ def select_option_by_visible_text(
     wanted_text,
 ):
     """
-    Select an option using its visible text.
+    Select an option by visible text.
     """
 
     wanted = clean_text(
@@ -249,16 +531,12 @@ def select_option_by_visible_text(
 
 
 # ================================================================
-# WAIT FOR CALCULATOR
+# WAIT FOR DYNAMIC CONTENT
 # ================================================================
 
 def wait_for_dynamic_dropdowns(page):
     """
-    Wait until the Service option appears.
-
-    IMPORTANT:
-    Playwright Python requires the JavaScript function argument
-    to be supplied using arg=.
+    Wait for the Service option to become available.
     """
 
     page.wait_for_timeout(
@@ -294,7 +572,7 @@ def wait_for_dynamic_dropdowns(page):
 
     except PlaywrightTimeoutError:
 
-        print_dropdown_information(
+        print_form_controls(
             page
         )
 
@@ -314,10 +592,9 @@ def wait_for_dynamic_dropdowns(page):
 
 def get_destination_select(page):
     """
-    Find the Destination information dropdown.
+    Find the destination SELECT.
 
-    We identify it by looking for a SELECT with multiple country
-    options.
+    The calculator currently exposes a large destination list.
     """
 
     selects = page.locator(
@@ -364,7 +641,6 @@ def get_destination_select(page):
                 )
             )
 
-    # Look for recognizable country names.
     country_keywords = [
         "Albania",
         "Austria",
@@ -395,12 +671,13 @@ def get_destination_select(page):
         for keyword in country_keywords:
 
             if keyword.casefold() in combined:
+
                 matches += 1
 
         if matches >= 2:
+
             return select
 
-    # Fallback: dropdown with most options.
     if candidates:
 
         candidates.sort(
@@ -412,7 +689,7 @@ def get_destination_select(page):
 
         return candidates[0][0]
 
-    print_dropdown_information(
+    print_form_controls(
         page
     )
 
@@ -425,9 +702,7 @@ def get_all_destinations(
     destination_select,
 ):
     """
-    Return every destination from the dropdown.
-
-    Placeholder options are ignored.
+    Return all actual destination options.
     """
 
     destinations = []
@@ -477,7 +752,6 @@ def get_all_destinations(
             }
         )
 
-    # Remove duplicates while preserving order.
     unique = []
 
     seen = set()
@@ -500,15 +774,31 @@ def get_all_destinations(
 
 
 # ================================================================
-# WEIGHT
+# FIND WEIGHT CONTROL
 # ================================================================
 
-def find_weight_input(page):
+def find_weight_control(page):
     """
-    Find the Weight input field.
+    Find the calculator's Weight control.
+
+    This is deliberately much more flexible than simply looking
+    for an <input> whose id/name contains "weight".
+
+    The control may be:
+
+        - input
+        - select
+        - textarea
+        - contenteditable element
+
+    We first inspect labels and nearby DOM elements, then inspect
+    attributes, then fall back to visible numeric/text controls.
     """
 
-    # First try labels.
+    # ------------------------------------------------------------
+    # 1. Look for an explicit label.
+    # ------------------------------------------------------------
+
     labels = page.locator(
         "label"
     )
@@ -521,12 +811,19 @@ def find_weight_input(page):
             label_index
         )
 
+        if not label.is_visible():
+            continue
+
         label_text = clean_text(
             label.inner_text()
         ).casefold()
 
         if "weight" not in label_text:
             continue
+
+        print(
+            f"Found Weight label: {label_text!r}"
+        )
 
         label_for = label.get_attribute(
             "for"
@@ -539,76 +836,354 @@ def find_weight_input(page):
             )
 
             if candidate.count() > 0:
-                return candidate
 
+                print(
+                    "Weight control found through label 'for'."
+                )
+
+                return candidate.first
+
+        # Try controls inside the label.
+        candidate = label.locator(
+            "input, select, textarea, "
+            "[contenteditable='true']"
+        )
+
+        if candidate.count() > 0:
+
+            print(
+                "Weight control found inside label."
+            )
+
+            return candidate.first
+
+        # Try the next few controls in DOM order.
         candidate = label.locator(
             "xpath=following::input[1]"
         )
 
         if candidate.count() > 0:
-            return candidate.first
 
-    # Then inspect input attributes.
-    inputs = page.locator(
-        "input"
+            try:
+
+                if candidate.first.is_visible():
+
+                    print(
+                        "Weight control found after label."
+                    )
+
+                    return candidate.first
+
+            except Exception:
+                pass
+
+    # ------------------------------------------------------------
+    # 2. Look for attributes containing "weight".
+    # ------------------------------------------------------------
+
+    all_controls = page.locator(
+        "input, select, textarea, "
+        "[contenteditable='true']"
     )
 
-    for input_index in range(
-        inputs.count()
+    for index in range(
+        all_controls.count()
     ):
 
-        input_element = inputs.nth(
-            input_index
+        control = all_controls.nth(
+            index
         )
 
-        identifier = " ".join(
+        if not control.is_visible():
+            continue
+
+        searchable = " ".join(
             [
-                input_element.get_attribute(
+                control.get_attribute(
                     "id"
                 ) or "",
-                input_element.get_attribute(
+                control.get_attribute(
                     "name"
                 ) or "",
-                input_element.get_attribute(
+                control.get_attribute(
+                    "class"
+                ) or "",
+                control.get_attribute(
                     "placeholder"
                 ) or "",
-                input_element.get_attribute(
+                control.get_attribute(
                     "aria-label"
+                ) or "",
+                control.get_attribute(
+                    "title"
                 ) or "",
             ]
         ).casefold()
 
-        if "weight" in identifier:
-            return input_element
+        if "weight" in searchable:
 
-    # Final fallback.
-    for input_index in range(
-        inputs.count()
+            print(
+                "Weight control found through attributes."
+            )
+
+            return control
+
+    # ------------------------------------------------------------
+    # 3. Look for nearby text in parent/container.
+    # ------------------------------------------------------------
+
+    for index in range(
+        all_controls.count()
     ):
 
-        input_element = inputs.nth(
-            input_index
+        control = all_controls.nth(
+            index
         )
 
-        if not input_element.is_visible():
+        if not control.is_visible():
+            continue
+
+        try:
+
+            context = control.evaluate(
+                """
+                element => {
+                    let node = element;
+
+                    for (let i = 0; i < 4 && node; i++) {
+                        const text =
+                            (node.innerText || "")
+                            .replace(/\\s+/g, " ")
+                            .trim();
+
+                        if (text.length > 0) {
+                            return text;
+                        }
+
+                        node = node.parentElement;
+                    }
+
+                    return "";
+                }
+                """
+            )
+
+        except Exception:
+
+            context = ""
+
+        context = clean_text(
+            context
+        ).casefold()
+
+        if "weight" in context:
+
+            print(
+                "Weight control found from surrounding container."
+            )
+
+            return control
+
+    # ------------------------------------------------------------
+    # 4. Look for numeric inputs.
+    # ------------------------------------------------------------
+
+    for index in range(
+        all_controls.count()
+    ):
+
+        control = all_controls.nth(
+            index
+        )
+
+        if not control.is_visible():
+            continue
+
+        tag = control.evaluate(
+            "(e) => e.tagName.toLowerCase()"
+        )
+
+        if tag != "input":
             continue
 
         input_type = (
-            input_element.get_attribute(
+            control.get_attribute(
+                "type"
+            )
+            or "text"
+        ).casefold()
+
+        if input_type == "number":
+
+            print(
+                "Weight control found as visible numeric input."
+            )
+
+            return control
+
+    # ------------------------------------------------------------
+    # 5. Look for a visible text input.
+    #
+    # We deliberately only use this as a last resort.
+    # ------------------------------------------------------------
+
+    visible_text_inputs = []
+
+    for index in range(
+        all_controls.count()
+    ):
+
+        control = all_controls.nth(
+            index
+        )
+
+        if not control.is_visible():
+            continue
+
+        tag = control.evaluate(
+            "(e) => e.tagName.toLowerCase()"
+        )
+
+        if tag != "input":
+            continue
+
+        input_type = (
+            control.get_attribute(
                 "type"
             )
             or "text"
         ).casefold()
 
         if input_type in {
-            "number",
             "text",
+            "number",
+            "tel",
         }:
 
-            return input_element
+            visible_text_inputs.append(
+                control
+            )
+
+    if len(visible_text_inputs) == 1:
+
+        print(
+            "Only one visible text/numeric input exists; "
+            "using it as Weight."
+        )
+
+        return visible_text_inputs[0]
+
+    # ------------------------------------------------------------
+    # Nothing found.
+    # Print diagnostics before failing.
+    # ------------------------------------------------------------
+
+    print_weight_related_elements(
+        page
+    )
+
+    print_form_controls(
+        page
+    )
 
     raise RuntimeError(
-        "Could not find Weight input."
+        "Could not find Weight control."
+    )
+
+
+# ================================================================
+# ENTER WEIGHT
+# ================================================================
+
+def enter_weight(
+    weight_control,
+    value,
+):
+    """
+    Put the requested weight into the detected control.
+    """
+
+    tag = weight_control.evaluate(
+        "(e) => e.tagName.toLowerCase()"
+    )
+
+    print(
+        f"Weight control type: {tag}"
+    )
+
+    if tag == "select":
+
+        # If weight is a dropdown, try exact 10 first.
+        options = weight_control.locator(
+            "option"
+        )
+
+        for index in range(
+            options.count()
+        ):
+
+            option = options.nth(index)
+
+            text = clean_text(
+                option.inner_text()
+            )
+
+            option_value = (
+                option.get_attribute(
+                    "value"
+                )
+            )
+
+            if (
+                text == value
+                or option_value == value
+            ):
+
+                if option_value is not None:
+
+                    weight_control.select_option(
+                        value=option_value
+                    )
+
+                else:
+
+                    weight_control.select_option(
+                        label=text
+                    )
+
+                return
+
+        raise RuntimeError(
+            f'Weight dropdown does not contain "{value}".'
+        )
+
+    # ------------------------------------------------------------
+    # Input / textarea / contenteditable.
+    # ------------------------------------------------------------
+
+    if tag in {
+        "input",
+        "textarea",
+    }:
+
+        weight_control.fill(
+            value
+        )
+
+        return
+
+    if weight_control.get_attribute(
+        "contenteditable"
+    ) == "true":
+
+        weight_control.fill(
+            value
+        )
+
+        return
+
+    raise RuntimeError(
+        f"Unsupported Weight control: {tag}"
     )
 
 
@@ -618,12 +1193,14 @@ def find_weight_input(page):
 
 def find_calculate_button(page):
     """
-    Find the Calculate button.
+    Find the Calculate control.
     """
 
     buttons = page.locator(
-        "button, input[type='button'], "
-        "input[type='submit']"
+        "button, "
+        "input[type='button'], "
+        "input[type='submit'], "
+        "[role='button']"
     )
 
     for button_index in range(
@@ -637,27 +1214,46 @@ def find_calculate_button(page):
         if not button.is_visible():
             continue
 
-        tag_name = button.evaluate(
-            "(element) => "
-            "element.tagName.toLowerCase()"
-        )
-
-        if tag_name == "button":
+        try:
 
             text = clean_text(
                 button.inner_text()
             )
 
-        else:
+        except Exception:
 
-            text = clean_text(
-                button.get_attribute(
-                    "value"
-                )
-                or ""
+            text = ""
+
+        value = clean_text(
+            button.get_attribute(
+                "value"
             )
+            or ""
+        )
 
-        if text.casefold() == "calculate":
+        aria = clean_text(
+            button.get_attribute(
+                "aria-label"
+            )
+            or ""
+        )
+
+        combined = " ".join(
+            [
+                text,
+                value,
+                aria,
+            ]
+        ).casefold()
+
+        if "calculate" in combined:
+
+            print(
+                f'Calculate button found: '
+                f'text={text!r}, '
+                f'value={value!r}, '
+                f'aria-label={aria!r}'
+            )
 
             return button
 
@@ -672,7 +1268,7 @@ def find_calculate_button(page):
 
 def page_contains_price(page):
     """
-    Determine whether the expected postcard price text is present.
+    Check whether the expected price text exists.
     """
 
     body_text = clean_text(
@@ -696,7 +1292,7 @@ def check_destination(
     page,
     destination_select,
     destination,
-    weight_input,
+    weight_control,
     calculate_button,
 ):
     """
@@ -715,7 +1311,7 @@ def check_destination(
     )
 
     # ------------------------------------------------------------
-    # Select destination.
+    # Destination
     # ------------------------------------------------------------
 
     value = destination[
@@ -745,26 +1341,26 @@ def check_destination(
         )
 
     # ------------------------------------------------------------
-    # Enter weight 10.
+    # Weight
     # ------------------------------------------------------------
 
-    weight_input.fill(
-        WEIGHT
+    enter_weight(
+        weight_control,
+        WEIGHT,
     )
 
     # ------------------------------------------------------------
-    # Click Calculate.
+    # Calculate
     # ------------------------------------------------------------
 
     calculate_button.click()
 
-    # Give JavaScript time to update.
     page.wait_for_timeout(
         CALCULATION_WAIT_MS
     )
 
     # ------------------------------------------------------------
-    # Check for expected price text.
+    # Result
     # ------------------------------------------------------------
 
     available = page_contains_price(
@@ -774,13 +1370,13 @@ def check_destination(
     if available:
 
         print(
-            f"  -> AVAILABLE"
+            "  -> AVAILABLE"
         )
 
     else:
 
         print(
-            f"  -> SUSPENDED"
+            "  -> SUSPENDED"
         )
 
     return available
@@ -796,9 +1392,7 @@ def write_results(
     suspended_destinations,
 ):
     """
-    Write the single results.txt file.
-
-    No timestamp is written.
+    Write results.txt without a timestamp.
     """
 
     lines = []
@@ -831,9 +1425,9 @@ def write_results(
 
     lines.append("")
 
-    # ============================================================
-    # ALL DESTINATIONS
-    # ============================================================
+    # ------------------------------------------------------------
+    # ALL
+    # ------------------------------------------------------------
 
     lines.append(
         "1) ALL DESTINATIONS"
@@ -861,9 +1455,9 @@ def write_results(
 
     lines.append("")
 
-    # ============================================================
+    # ------------------------------------------------------------
     # AVAILABLE
-    # ============================================================
+    # ------------------------------------------------------------
 
     lines.append(
         "2) AVAILABLE DESTINATIONS"
@@ -891,9 +1485,9 @@ def write_results(
 
     lines.append("")
 
-    # ============================================================
+    # ------------------------------------------------------------
     # SUSPENDED
-    # ============================================================
+    # ------------------------------------------------------------
 
     lines.append(
         "3) SUSPENDED DESTINATIONS"
@@ -921,9 +1515,9 @@ def write_results(
 
     lines.append("")
 
-    # ============================================================
+    # ------------------------------------------------------------
     # RULE
-    # ============================================================
+    # ------------------------------------------------------------
 
     lines.append(
         "CHECK RULE"
@@ -957,11 +1551,11 @@ def write_results(
 
 def main():
 
-    print("=" * 70)
+    print("=" * 80)
     print(
         "POŠTE SRPSKE CALCULATOR CHECK"
     )
-    print("=" * 70)
+    print("=" * 80)
 
     print()
 
@@ -988,10 +1582,6 @@ def main():
     available_destinations = []
 
     suspended_destinations = []
-
-    # ============================================================
-    # START PLAYWRIGHT
-    # ============================================================
 
     with sync_playwright() as playwright:
 
@@ -1047,7 +1637,7 @@ def main():
 
             if type_select is None:
 
-                print_dropdown_information(
+                print_form_controls(
                     page
                 )
 
@@ -1081,7 +1671,7 @@ def main():
 
             if service_select is None:
 
-                print_dropdown_information(
+                print_form_controls(
                     page
                 )
 
@@ -1095,7 +1685,7 @@ def main():
             )
 
             # ====================================================
-            # WAIT FOR DESTINATION LIST
+            # WAIT
             # ====================================================
 
             print(
@@ -1128,7 +1718,7 @@ def main():
 
             if not destinations:
 
-                print_dropdown_information(
+                print_form_controls(
                     page
                 )
 
@@ -1142,25 +1732,27 @@ def main():
             ]
 
             print()
-
             print(
                 f"Found {len(destinations)} destinations."
             )
-
             print()
 
             # ====================================================
-            # WEIGHT
+            # FIND WEIGHT
             # ====================================================
 
             print(
-                "Finding Weight input..."
+                "Finding Weight control..."
             )
 
-            weight_input = (
-                find_weight_input(
+            weight_control = (
+                find_weight_control(
                     page
                 )
+            )
+
+            print(
+                "Weight control located successfully."
             )
 
             # ====================================================
@@ -1182,11 +1774,9 @@ def main():
             # ====================================================
 
             print()
-
             print(
                 "STEP 5: Checking destinations..."
             )
-
             print()
 
             for number, destination in enumerate(
@@ -1205,7 +1795,7 @@ def main():
                             page,
                             destination_select,
                             destination,
-                            weight_input,
+                            weight_control,
                             calculate_button,
                         )
                     )
@@ -1236,7 +1826,6 @@ def main():
                         destination["text"]
                     )
 
-                # Small pause between requests.
                 time.sleep(
                     0.5
                 )
@@ -1246,7 +1835,6 @@ def main():
             # ====================================================
 
             print()
-
             print(
                 "STEP 6: Writing results.txt..."
             )
@@ -1262,15 +1850,11 @@ def main():
             # ====================================================
 
             print()
-
-            print("=" * 70)
-
+            print("=" * 80)
             print(
                 "FINISHED"
             )
-
-            print("=" * 70)
-
+            print("=" * 80)
             print()
 
             print(
@@ -1324,9 +1908,11 @@ if __name__ == "__main__":
     except Exception as error:
 
         print()
-        print("=" * 70)
-        print("ERROR")
-        print("=" * 70)
+        print("=" * 80)
+        print(
+            "ERROR"
+        )
+        print("=" * 80)
         print()
 
         print(
