@@ -3,7 +3,6 @@ name: Check Pošte Srpske Calculator
 on:
   schedule:
     - cron: "0 0 * * *"
-
   workflow_dispatch:
 
 permissions:
@@ -37,16 +36,42 @@ jobs:
         run: |
           python check_srpske_calculator.py
 
-      - name: Check diagnostic output
+      - name: Display diagnostic output
         if: always()
         run: |
           echo "============================================================"
-          echo "Diagnostic completed"
+          echo "Diagnostic files"
           echo "============================================================"
+
+          if [ -f calculator_after_destination.html ]; then
+            echo "HTML file was created."
+            echo "HTML size:"
+            wc -c calculator_after_destination.html
+          else
+            echo "No HTML diagnostic file."
+          fi
+
+          if [ -f calculator_after_destination.png ]; then
+            echo "Screenshot was created."
+            echo "Screenshot size:"
+            wc -c calculator_after_destination.png
+          else
+            echo "No screenshot diagnostic file."
+          fi
 
           if [ -f results.txt ]; then
             echo "results.txt exists:"
             cat results.txt
           else
-            echo "No results.txt was created by the diagnostic script."
+            echo "No results.txt was created. This is expected for this diagnostic."
           fi
+
+      - name: Upload diagnostic files
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: calculator-diagnostic
+          path: |
+            calculator_after_destination.html
+            calculator_after_destination.png
+          if-no-files-found: ignore
